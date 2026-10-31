@@ -1,0 +1,112 @@
+import 'server-only';
+import { prisma } from './db';
+import { summarizeDays, toShiftDef } from './attendance';
+import { calcPayslip, type PayType } from './payroll';
+import { getSettings } from './settings';
+import { addDays, atTime, daysInclusive, isFullMonth, toDateStr } from './time';
+
+/** วันเริ่มงานของพนักงาน (ถ้าไม่ได้กรอก ใช้วันที่สร้างข้อมูล) */
+export function employedFrom(emp: { startDate: string | null; createdAt: Date }): string {
+  return emp.startDate ?? toDateStr(emp.createdAt);
+}
+
+/** ดึงการตอกเวลาที่ยังไม่ถูกยกเลิก ครอบคลุมช่วงวันที่ (เผื่อกะข้ามวัน 1 วัน) */
+export async function loadPunches(employeeIds: number[], startDate: string, endDate: string) {
+  return prisma.attendance.findMany({
+    where: {
+      employeeId: { in: employeeIds },
+      voidedAt: null,
+      timestamp: { gte: atTime(addDays(startDate, -1), '00:00'), lt: atTime(addDays(endDate, 2), '00:00') },
+    },
+    orderBy: { timestamp: 'asc' },
+  });
+}
+
+export async function loadHolidays(startDate: string, endDate: string) {
+  return prisma.holiday.findMany({ where: { date: { gte: startDate, lte: endDate } } });
+}
+
+export function holidaySetFor(holidays: { date: string; storeId: number | null }[], storeId: number | null) {
+  return new Set(holidays.filter((h) => h.storeId === null || h.storeId === storeId).map((h) => h.date));
+}
+
+/** สรุปรายวันของพนักงาน 1 คนในช่วงวันที่ */
+export async function employeeDays(employeeId: number, startDate: string, endDate: string) {
+  const emp = await prisma.employee.findUniqueOrThrow({ where: { id: employeeId }, include: { shift: true } });
+  const [punches, holidays, settings] = await Promise.all([
+    loadPunches([employeeId], startDate, endDate),
+    loadHolidays(startDate, endDate),
+    getSettings(),
+  ]);
+  return summarizeDays({
+    punches,
+    shift: toShiftDef(emp.shift),
+    holidays: holidaySetFor(holidays, emp.storeId),
+    startDate,
+    endDate,
+    today: toDateStr(new Date()),
+    otBlockMinutes: settings.otBlockMinutes,
+    employedFrom: employedFrom(emp),
+  });
+}
+
+/** คำนวณ (หรือคำนวณใหม่) สลิปทุกคนในงวด — ทำได้เฉพาะงวดที่ยังเป็นร่าง */
+export async function computePeriod(periodId: number) {
+  const period = await prisma.payrollPeriod.findUniqueOrThrow({ where: { id: periodId }, include: { payslips: true } });
+  if (period.status !== 'DRAFT') throw new Error('งวดนี้อนุมัติแล้ว แก้ไขไม่ได้');
+
+  const settings = await getSettings();
+  const all = await prisma.employee.findMany({
+    where: { active: true, baseSalary: { gt: 0 } },
+    include: { shift: true },
+  });
+  // ไม่รวมพนักงานที่เริ่มงานหลังงวดนี้
+  const employees = all.filter((e) => employedFrom(e) <= period.endDate);
+  const [punches, holidays] = await Promise.all([
+    loadPunches(employees.map((e) => e.id), period.startDate, period.endDate),
+    loadHolidays(period.startDate, period.endDate),
+  ]);
+  const today = toDateStr(new Date());
+  const existing = new Map(period.payslips.map((p) => [p.employeeId, p]));
+
+  await prisma.$transaction([
+    // ลบสลิปของคนที่ไม่อยู่ในงวดนี้แล้ว (เช่น ปิดใช้งาน)
+    prisma.payslip.deleteMany({ where: { periodId, employeeId: { notIn: employees.map((e) => e.id) } } }),
+    ...employees.map((emp) => {
+      // เริ่มงานกลางงวด → คิดตั้งแต่วันเริ่มงาน และเงินเดือนคิดตามสัดส่วน
+      const start = employedFrom(emp) > period.startDate ? employedFrom(emp) : period.startDate;
+      const days = summarizeDays({
+        punches: punches.filter((p) => p.employeeId === emp.id),
+        shift: toShiftDef(emp.shift),
+        holidays: holidaySetFor(holidays, emp.storeId),
+        startDate: start,
+        endDate: period.endDate,
+        today,
+        otBlockMinutes: settings.otBlockMinutes,
+      });
+      const prev = existing.get(emp.id);
+      const result = calcPayslip(
+        {
+          payType: emp.payType as PayType,
+          baseSalary: emp.baseSalary,
+          allowance: emp.allowance,
+          bonus: prev?.bonus ?? 0,
+          otherDeduction: prev?.otherDeduction ?? 0,
+          socialSecurity: emp.socialSecurity,
+          taxDeduction: emp.taxDeduction,
+          days,
+          periodDays: daysInclusive(start, period.endDate),
+          fullMonth: isFullMonth(start, period.endDate),
+        },
+        settings,
+      );
+      const data = { ...result, payType: emp.payType, baseSalary: emp.baseSalary };
+      return prisma.payslip.upsert({
+        where: { periodId_employeeId: { periodId, employeeId: emp.id } },
+        update: data,
+        create: { ...data, periodId, employeeId: emp.id },
+      });
+    }),
+  ]);
+  await prisma.payrollPeriod.update({ where: { id: periodId }, data: { computedAt: new Date() } });
+}
