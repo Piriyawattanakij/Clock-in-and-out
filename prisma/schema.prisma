@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// ร้าน / สาขา พร้อมพิกัดและรัศมีที่อนุญาตให้ตอกเวลา
+model Store {
+  id          Int          @id @default(autoincrement())
+  name        String
+  address     String?
+  latitude    Float
+  longitude   Float
+  radiusM     Int          @default(100)
+  employees   Employee[]
+  attendances Attendance[]
+  holidays    Holiday[]
+  createdAt   DateTime     @default(now())
+}
+
+/// กะงาน เช่น 09:00–18:00 พัก 60 นาที
+model Shift {
+  id               Int        @id @default(autoincrement())
+  name             String
+  startTime        String // "HH:MM"
+  endTime          String // "HH:MM" (ถ้าน้อยกว่าเวลาเริ่ม = ข้ามวัน)
+  breakMinutes     Int        @default(60)
+  lateGraceMinutes Int        @default(5)
+  workDays         String     @default("1,2,3,4,5,6") // 0=อาทิตย์ ... 6=เสาร์
+  employees        Employee[]
+}
+
+model Employee {
+  id             Int          @id @default(autoincrement())
+  code           String       @unique
+  name           String
+  phone          String?
+  position       String?
+  role           String       @default("STAFF") // STAFF | ADMIN
+  passwordHash   String
+  active         Boolean      @default(true)
+  startDate      String? // วันเริ่มงาน YYYY-MM-DD (ก่อนวันนี้จะไม่นับขาดงาน/ไม่คิดเงินเดือน)
+  storeId        Int?
+  store          Store?       @relation(fields: [storeId], references: [id])
+  shiftId        Int?
+  shift          Shift?       @relation(fields: [shiftId], references: [id])
+  // ---- เงินเดือน (จำนวนเงินเก็บเป็น "สตางค์" เพื่อเลี่ยงปัญหาทศนิยม) ----
+  payType        String       @default("MONTHLY") // MONTHLY | DAILY | HOURLY
+  baseSalary     Int          @default(0) // เงินเดือน / ค่าแรงต่อวัน / ค่าแรงต่อชั่วโมง
+  allowance      Int          @default(0) // เบี้ยเลี้ยงประจำต่อเดือน
+  socialSecurity Boolean      @default(true)
+  taxDeduction   Int          @default(0) // ค่าลดหย่อนภาษีเพิ่มเติมต่อปี (นอกจากส่วนตัว)
+  bankName       String?
+  bankAccount    String?
+  taxId          String?
+  attendances    Attendance[] @relation("EmployeeAttendance")
+  payslips       Payslip[]
+  createdAt      DateTime     @default(now())
+}
+
+/// การตอกเวลา 1 ครั้ง (เข้า หรือ ออก) — ไม่ลบจริง ใช้การยกเลิก (void) เพื่อเก็บประวัติ
+model Attendance {
+  id          Int       @id @default(autoincrement())
+  employeeId  Int
+  employee    Employee  @relation("EmployeeAttendance", fields: [employeeId], references: [id])
+  storeId     Int?
+  store       Store?    @relation(fields: [storeId], references: [id])
+  type        String // IN | OUT
+  timestamp   DateTime  @default(now())
+  latitude    Float?
+  longitude   Float?
+  accuracyM   Float?
+  distanceM   Float?
+  source      String    @default("GPS") // GPS | MANUAL
+  note        String?
+  createdById Int?
+  userAgent   String?
+  voidedAt    DateTime?
+  voidedById  Int?
+  voidNote    String?
+  createdAt   DateTime  @default(now())
+
+  @@index([employeeId, timestamp])
+}
+
+model Holiday {
+  id      Int     @id @default(autoincrement())
+  date    String // YYYY-MM-DD
+  name    String
+  storeId Int? // null = ทุกสาขา
+  store   Store?  @relation(fields: [storeId], references: [id])
+
+  @@index([date])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model PayrollPeriod {
+  id         Int       @id @default(autoincrement())
+  name       String
+  startDate  String // YYYY-MM-DD
+  endDate    String // YYYY-MM-DD
+  status     String    @default("DRAFT") // DRAFT | APPROVED | PAID
+  computedAt DateTime?
+  approvedAt DateTime?
+  paidAt     DateTime?
+  payslips   Payslip[]
+  createdAt  DateTime  @default(now())
+
+  @@unique([startDate, endDate])
+}
+
+/// สลิปเงินเดือน — เก็บผลคำนวณเป็นตัวเลข (snapshot) ไม่คำนวณใหม่ทุกครั้งที่เปิด
+model Payslip {
+  id                 Int           @id @default(autoincrement())
+  periodId           Int
+  period             PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  employeeId         Int
+  employee           Employee      @relation(fields: [employeeId], references: [id])
+  payType            String
+  baseSalary         Int
+  workDays           Int
+  absentDays         Int
+  workMinutes        Int
+  lateMinutes        Int
+  otMinutes          Int
+  holidayWorkMinutes Int
+  holidayOtMinutes   Int
+  basePay            Int
+  holidayPay         Int
+  otPay              Int
+  allowance          Int
+  bonus              Int           @default(0)
+  lateDeduction      Int
+  absentDeduction    Int
+  socialSecurity     Int
+  withholdingTax     Int
+  otherDeduction     Int           @default(0)
+  grossPay           Int
+  netPay             Int
+  note               String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@unique([periodId, employeeId])
+}
