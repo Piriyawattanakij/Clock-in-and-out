@@ -10,7 +10,7 @@ export function employedFrom(emp: { startDate: string | null; createdAt: Date })
   return emp.startDate ?? toDateStr(emp.createdAt);
 }
 
-/** ดึงการตอกเวลาที่ยังไม่ถูกยกเลิก ครอบคลุมช่วงวันที่ (เผื่อกะข้ามวัน 1 วัน) */
+/** ดึงการบันทึกเวลาที่ยังไม่ถูกยกเลิก ครอบคลุมช่วงวันที่ (เผื่อกะข้ามวัน 1 วัน) */
 export async function loadPunches(employeeIds: number[], startDate: string, endDate: string) {
   return prisma.attendance.findMany({
     where: {

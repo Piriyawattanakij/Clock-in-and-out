@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
-import { requireAdmin } from '@/lib/auth';
+import { createSession, requireAdmin } from '@/lib/auth';
 import { parseBaht } from '@/lib/money';
 import { computePeriod } from '@/lib/payroll-service';
 import { DEFAULT_SETTINGS, saveSettings, type AppSettings } from '@/lib/settings';
@@ -65,7 +65,9 @@ export async function saveEmployeeAction(fd: FormData) {
     bankName: optStr(fd, 'bankName'),
     bankAccount: optStr(fd, 'bankAccount'),
     taxId: optStr(fd, 'taxId'),
-    ...(password ? { passwordHash: await bcrypt.hash(password, 10) } : {}),
+    ...(password
+      ? { passwordHash: await bcrypt.hash(password, 10), passwordChangedAt: new Date(), mustChangePassword: id !== admin.id }
+      : {}),
   };
 
   let savedId: number;
@@ -81,8 +83,11 @@ export async function saveEmployeeAction(fd: FormData) {
     if (isUnique(e)) go(back, { error: `รหัสพนักงาน "${code}" มีอยู่แล้ว` });
     throw e;
   }
+  if (password && savedId === admin.id) await createSession(admin.id); // เปลี่ยนรหัสตัวเอง → ไม่ต้อง login ใหม่บนเครื่องนี้
   revalidatePath('/admin/employees');
-  go(`/admin/employees/${savedId}`, { ok: 'บันทึกข้อมูลพนักงานแล้ว' });
+  go(`/admin/employees/${savedId}`, {
+    ok: password && savedId !== admin.id ? 'บันทึกแล้ว — พนักงานจะต้องตั้งรหัสผ่านใหม่เองเมื่อเข้าใช้ครั้งถัดไป' : 'บันทึกข้อมูลพนักงานแล้ว',
+  });
 }
 
 // ---------- ร้าน ----------
@@ -140,7 +145,7 @@ export async function deleteHolidayAction(fd: FormData) {
   go('/admin/shifts', { ok: 'ลบวันหยุดแล้ว' });
 }
 
-// ---------- การตอกเวลา (แก้ไขโดยผู้ดูแล — เก็บประวัติเสมอ) ----------
+// ---------- การบันทึกเวลา (แก้ไขโดยผู้ดูแล — เก็บประวัติเสมอ) ----------
 export async function addManualAttendanceAction(fd: FormData) {
   const admin = await requireAdmin();
   const back = `/admin/attendance?date=${str(fd, 'backDate')}`;
@@ -157,7 +162,7 @@ export async function addManualAttendanceAction(fd: FormData) {
   await prisma.attendance.create({
     data: { employeeId, storeId: emp.storeId, type, timestamp, source: 'MANUAL', note, createdById: admin.id },
   });
-  go(back, { ok: 'เพิ่มรายการตอกเวลาแล้ว' });
+  go(back, { ok: 'เพิ่มรายการบันทึกเวลาแล้ว' });
 }
 
 export async function voidAttendanceAction(fd: FormData) {
@@ -257,4 +262,38 @@ export async function deletePeriodAction(fd: FormData) {
   if (p.status !== 'DRAFT') go(`/admin/payroll/${p.id}`, { error: 'ลบได้เฉพาะงวดที่เป็นร่าง' });
   await prisma.payrollPeriod.delete({ where: { id: p.id } });
   go('/admin/payroll', { ok: 'ลบงวดแล้ว' });
+}
+
+// ---------- ประกาศ ----------
+export async function saveAnnouncementAction(fd: FormData) {
+  const admin = await requireAdmin();
+  const id = int(fd, 'id');
+  const back = id ? `/admin/announcements/${id}` : '/admin/announcements';
+  const title = str(fd, 'title');
+  const body = str(fd, 'body');
+  const expiresAt = str(fd, 'expiresAt');
+  if (!title || !body) go(back, { error: 'กรุณากรอกหัวข้อและรายละเอียด' });
+  if (title.length > 120) go(back, { error: 'หัวข้อยาวเกิน 120 ตัวอักษร' });
+  if (body.length > 5000) go(back, { error: 'รายละเอียดยาวเกิน 5,000 ตัวอักษร' });
+  if (expiresAt && !isValidDateStr(expiresAt)) go(back, { error: 'วันหมดอายุไม่ถูกต้อง' });
+  const data = {
+    title,
+    body,
+    important: fd.get('important') === 'on',
+    storeId: int(fd, 'storeId'),
+    expiresAt: expiresAt || null,
+  };
+  if (id) {
+    await prisma.announcement.update({ where: { id }, data });
+    go(`/admin/announcements/${id}`, { ok: 'บันทึกการแก้ไขแล้ว' });
+  }
+  await prisma.announcement.create({ data: { ...data, createdById: admin.id } });
+  go('/admin/announcements', { ok: 'ประกาศแล้ว พนักงานจะเห็นแจ้งเตือนเมื่อเปิดแอพ' });
+}
+
+export async function deleteAnnouncementAction(fd: FormData) {
+  await requireAdmin();
+  const id = int(fd, 'id');
+  if (id) await prisma.announcement.delete({ where: { id } });
+  go('/admin/announcements', { ok: 'ลบประกาศแล้ว' });
 }

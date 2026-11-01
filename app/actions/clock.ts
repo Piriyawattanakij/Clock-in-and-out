@@ -16,12 +16,13 @@ export interface ClockResult {
 }
 
 /**
- * ตอกเวลา — การตรวจระยะทั้งหมดทำที่ server
- * ระบบเป็นคนเลือกเองว่าเป็นการตอกเข้าหรือออก (จากรายการล่าสุด)
+ * บันทึกเวลา — การตรวจระยะทั้งหมดทำที่ server
+ * ระบบเป็นคนเลือกเองว่าเป็นการบันทึกเข้าหรือออก (จากรายการล่าสุด)
  */
 export async function clockAction(input: { latitude: number; longitude: number; accuracy: number }): Promise<ClockResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, message: 'กรุณาเข้าสู่ระบบใหม่' };
+  if (user.mustChangePassword) return { ok: false, message: 'กรุณาตั้งรหัสผ่านใหม่ก่อนใช้งาน' };
 
   const { latitude, longitude } = input;
   const accuracy = Number(input.accuracy);
@@ -52,7 +53,7 @@ export async function clockAction(input: { latitude: number; longitude: number; 
     orderBy: { timestamp: 'desc' },
   });
   if (last && now.getTime() - last.timestamp.getTime() < 60_000) {
-    return { ok: false, message: 'เพิ่งตอกเวลาไปเมื่อสักครู่ กรุณารอ 1 นาที' };
+    return { ok: false, message: 'เพิ่งบันทึกเวลาไปเมื่อสักครู่ กรุณารอ 1 นาที' };
   }
   const type = nextPunchType(last, now);
 
@@ -75,6 +76,6 @@ export async function clockAction(input: { latitude: number; longitude: number; 
   return {
     ok: true,
     distanceM: distance,
-    message: `ตอกเวลา${type === 'IN' ? 'เข้า' : 'ออก'}งานสำเร็จ เวลา ${fmtTime(now)} น. (ห่างจากร้าน ${Math.round(distance)} ม.)`,
+    message: `บันทึกเวลา${type === 'IN' ? 'เข้า' : 'ออก'}งานสำเร็จ เวลา ${fmtTime(now)} น. (ห่างจากร้าน ${Math.round(distance)} ม.)`,
   };
 }

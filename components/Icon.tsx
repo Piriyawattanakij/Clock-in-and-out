@@ -1,5 +1,5 @@
 import {
-  CalendarDays, ChevronRight, Clock, Fingerprint, History, House, LayoutGrid, ListChecks, Receipt, Settings, Store, UserRound, Users, Wallet,
+  Bell, CalendarDays, ChevronRight, KeyRound, Megaphone, Clock, Fingerprint, History, House, LayoutGrid, ListChecks, Receipt, Settings, Store, UserRound, Users, Wallet,
   type LucideProps,
 } from 'lucide-react';
 
@@ -18,6 +18,9 @@ const ICONS = {
   settings: Settings,
   fingerprint: Fingerprint,
   chevron: ChevronRight,
+  bell: Bell,
+  megaphone: Megaphone,
+  key: KeyRound,
 };
 
 export type IconName = keyof typeof ICONS;

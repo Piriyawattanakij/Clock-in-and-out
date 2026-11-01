@@ -2,7 +2,7 @@ import { prisma } from './db';
 import { DEFAULT_PAYROLL_SETTINGS, type PayrollSettings } from './payroll';
 
 export interface AppSettings extends PayrollSettings {
-  /** GPS ต้องแม่นยำกว่านี้ (เมตร) จึงจะยอมให้ตอกเวลา */
+  /** GPS ต้องแม่นยำกว่านี้ (เมตร) จึงจะยอมให้บันทึกเวลา */
   maxAccuracyM: number;
   /** ปัด OT ลงเป็นช่วงละกี่นาที */
   otBlockMinutes: number;

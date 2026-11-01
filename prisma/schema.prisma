@@ -18,6 +18,7 @@ model Store {
   employees   Employee[]
   attendances Attendance[]
   holidays    Holiday[]
+  announcements Announcement[]
   createdAt   DateTime     @default(now())
 }
 
@@ -41,6 +42,8 @@ model Employee {
   position       String?
   role           String       @default("STAFF") // STAFF | ADMIN
   passwordHash   String
+  mustChangePassword Boolean  @default(false) // ผู้ดูแลตั้ง/รีเซ็ตรหัสให้ → ต้องเปลี่ยนเองตอนเข้าใช้ครั้งถัดไป
+  passwordChangedAt  DateTime? // session ที่ออกก่อนเวลานี้จะใช้ไม่ได้ (ออกจากระบบทุกเครื่อง)
   active         Boolean      @default(true)
   photoUpdatedAt DateTime? // มีรูปโปรไฟล์หรือไม่ (ใช้ทำ cache-busting)
   photo          EmployeePhoto?
@@ -60,6 +63,7 @@ model Employee {
   taxId          String?
   attendances    Attendance[] @relation("EmployeeAttendance")
   payslips       Payslip[]
+  announcementReads AnnouncementRead[]
   createdAt      DateTime     @default(now())
 }
 
@@ -160,4 +164,29 @@ model EmployeePhoto {
   data       Bytes
   mimeType   String
   updatedAt  DateTime @updatedAt
+}
+
+/// ประกาศจากผู้ดูแล
+model Announcement {
+  id          Int                @id @default(autoincrement())
+  title       String
+  body        String
+  important   Boolean            @default(false) // ปักหมุดไว้บนสุด
+  storeId     Int? // null = ทุกสาขา
+  store       Store?             @relation(fields: [storeId], references: [id])
+  expiresAt   String? // YYYY-MM-DD (แสดงถึงวันนี้) — null = ไม่หมดอายุ
+  createdById Int
+  reads       AnnouncementRead[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model AnnouncementRead {
+  announcementId Int
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  employeeId     Int
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  readAt         DateTime     @default(now())
+
+  @@id([announcementId, employeeId])
 }

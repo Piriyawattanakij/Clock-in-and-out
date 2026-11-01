@@ -73,10 +73,10 @@ export function ClockPanel({ nextType, openSince }: { nextType: 'IN' | 'OUT'; op
         <div className="status-pill idle"><span className="dot" /> ยังไม่ได้เข้างาน</div>
       )}
 
-      <button className={`clock-btn ${isIn ? 'in' : 'out'}`} onClick={handleClock} disabled={busy} aria-label={isIn ? 'ตอกเวลาเข้างาน' : 'ตอกเวลาออกงาน'}>
+      <button className={`clock-btn ${isIn ? 'in' : 'out'}`} onClick={handleClock} disabled={busy} aria-label={isIn ? 'บันทึกเวลาเข้างาน' : 'บันทึกเวลาออกงาน'}>
         {busy ? <LoaderCircle size={56} className="spin" /> : <Fingerprint size={56} strokeWidth={1.6} />}
         <span>{isIn ? 'เข้างาน' : 'ออกงาน'}</span>
-        <small>{locating ? 'กำลังหาตำแหน่ง…' : pending ? 'กำลังบันทึก…' : 'แตะเพื่อตอกเวลา'}</small>
+        <small>{locating ? 'กำลังหาตำแหน่ง…' : pending ? 'กำลังบันทึก…' : 'แตะเพื่อบันทึกเวลา'}</small>
       </button>
 
       {result && (
