@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { logoutAction } from '@/app/actions/auth';
 import { ADMIN_LINKS } from '@/lib/nav';
 import { BottomNav } from './BottomNav';
-import { Icon } from './Icon';
+import { BrandLogo } from './BrandLogo';
 
 export async function Nav() {
   const user = await getCurrentUser();
@@ -15,7 +15,7 @@ export async function Nav() {
       {/* คอมพิวเตอร์: แถบด้านบน */}
       <header className="nav">
         <div className="inner">
-          <Link href="/" className="brand"><span className="logo"><Icon name="clock" size={18} /></span>ตอกเวลา</Link>
+          <Link href="/" className="brand"><BrandLogo height={34} /><span className="brand-sub">ตอกเวลา</span></Link>
           <Link href="/clock" className="link">ตอกเวลา</Link>
           <Link href="/history" className="link">ประวัติ</Link>
           <Link href="/payslips" className="link">สลิปเงินเดือน</Link>

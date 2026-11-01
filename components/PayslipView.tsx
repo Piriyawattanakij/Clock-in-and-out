@@ -2,6 +2,7 @@ import type { Employee, Payslip, PayrollPeriod } from '@prisma/client';
 import { fmtBaht } from '@/lib/money';
 import { PAY_TYPE_LABEL, type PayType } from '@/lib/payroll';
 import { fmtDate, fmtMinutes } from '@/lib/time';
+import { BrandLogo } from './BrandLogo';
 
 export function PayslipView({ slip }: { slip: Payslip & { employee: Employee; period: PayrollPeriod } }) {
   const income: [string, number][] = [
@@ -35,6 +36,8 @@ export function PayslipView({ slip }: { slip: Payslip & { employee: Employee; pe
             {fmtDate(slip.period.startDate)} – {fmtDate(slip.period.endDate)}
           </div>
         </div>
+        <span className="spacer" />
+        <BrandLogo height={48} />
       </div>
       <div className="grid grid-2" style={{ margin: '16px 0' }}>
         <div className="stat"><span className="muted">พนักงาน</span><b>{slip.employee.name}</b><span className="muted">{slip.employee.code} {slip.employee.position ?? ''}</span></div>

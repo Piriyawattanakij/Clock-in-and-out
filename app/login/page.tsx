@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { Clock } from 'lucide-react';
+import { BrandLogo } from '@/components/BrandLogo';
 import { getCurrentUser } from '@/lib/auth';
 import { LoginForm } from './LoginForm';
 
@@ -8,9 +8,8 @@ export default async function LoginPage() {
   return (
     <main className="login-screen">
       <div style={{ width: '100%', maxWidth: 400, margin: '0 auto' }}>
-        <div className="brand-mark"><Clock size={36} /></div>
-        <h1 style={{ textAlign: 'center', margin: '0 0 4px' }}>ตอกเวลา</h1>
-        <p className="muted" style={{ textAlign: 'center', marginTop: 0, marginBottom: 24 }}>เข้าสู่ระบบเพื่อตอกเวลาเข้า-ออกงาน</p>
+        <div className="brand"><BrandLogo height={120} /></div>
+        <p className="muted" style={{ textAlign: 'center', marginTop: 0, marginBottom: 24 }}>ระบบตอกเวลาพนักงาน · เข้าสู่ระบบเพื่อเริ่มงาน</p>
         <div className="card" style={{ padding: 20 }}>
           <LoginForm />
         </div>

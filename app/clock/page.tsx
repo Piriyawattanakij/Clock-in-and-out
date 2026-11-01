@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/auth';
 import { buildSessions, nextPunchType } from '@/lib/attendance';
 import { addDays, atTime, fmtDate, fmtMinutes, fmtTime, toDateStr } from '@/lib/time';
+import { BrandLogo } from '@/components/BrandLogo';
 import { ClockPanel } from './ClockPanel';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +35,10 @@ export default async function ClockPage() {
 
   return (
     <main className="container narrow">
+      <div className="app-bar only-mobile">
+        <BrandLogo height={44} />
+        <Link href="/me" className="avatar solid" aria-label="บัญชีของฉัน">{user.name.trim().charAt(0)}</Link>
+      </div>
       <section className="hero">
         <div className="row" style={{ alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
           <div className="grow" style={{ flex: 1 }}>
@@ -41,7 +46,6 @@ export default async function ClockPage() {
             <h1>{user.name}</h1>
             <div className="muted" style={{ marginTop: 2 }}>{fmtDate(now)}</div>
           </div>
-          <Link href="/me" className="avatar" aria-label="บัญชีของฉัน">{user.name.trim().charAt(0)}</Link>
         </div>
         {store && (
           <div style={{ marginTop: 14, position: 'relative', zIndex: 1 }}>

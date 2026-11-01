@@ -5,6 +5,7 @@ import { requireUser } from '@/lib/auth';
 import { logoutAction } from '@/app/actions/auth';
 import { PAY_TYPE_LABEL, type PayType } from '@/lib/payroll';
 import { Icon } from '@/components/Icon';
+import { BrandLogo } from '@/components/BrandLogo';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,7 +51,8 @@ export default async function MePage() {
       <form action={logoutAction}>
         <button className="btn btn-block btn-danger"><LogOut size={18} /> ออกจากระบบ</button>
       </form>
-      <p className="muted" style={{ textAlign: 'center', marginTop: 20 }}>
+      <div style={{ textAlign: 'center', marginTop: 28, opacity: 0.85 }}><BrandLogo height={40} /></div>
+      <p className="muted" style={{ textAlign: 'center', marginTop: 8 }}>
         เคล็ดลับ: กด “แชร์” → “เพิ่มไปยังหน้าจอโฮม” ในเบราว์เซอร์ เพื่อเปิดเหมือนแอพ
       </p>
     </main>
