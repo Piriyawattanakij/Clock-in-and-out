@@ -9,6 +9,9 @@ import { createSession, requireAdmin } from '@/lib/auth';
 import { parseBaht } from '@/lib/money';
 import { computePeriod, recomputeDraftPeriods } from '@/lib/payroll-service';
 import { notify } from '@/lib/notifications';
+import { evaluateMonthForAll, grant, grantQuickConfirm, walletOf } from '@/lib/reward-service';
+import { ACHIEVEMENTS, ACHIEVEMENT_BY_KEY } from '@/lib/achievement-defs';
+import { fmtBaht } from '@/lib/money';
 import { DEFAULT_SETTINGS, saveSettings, type AppSettings } from '@/lib/settings';
 import { fmtDate, fromLocalInput, isValidDateStr, isValidTime, monthRange, toDateStr } from '@/lib/time';
 
@@ -47,6 +50,14 @@ export async function saveEmployeeAction(fd: FormData) {
   const startDate = str(fd, 'startDate');
   if (startDate && !isValidDateStr(startDate)) go(back, { error: 'วันเริ่มงานไม่ถูกต้อง' });
   if (id === admin.id && (!active || role !== 'ADMIN')) go(back, { error: 'ไม่สามารถปิดใช้งานหรือลดสิทธิ์บัญชีของตัวเองได้' });
+  // กติกา: ลาออก → ต้องจ่ายเงินรางวัลคงเหลือก่อนปิดใช้งาน
+  if (id && !active) {
+    const w = await walletOf(id);
+    const unpaid = await prisma.rewardRedemption.count({ where: { employeeId: id, status: 'APPROVED' } });
+    if (w.balance > 0 || w.pending > 0 || unpaid > 0) {
+      go(back, { error: `พนักงานยังมีเงินรางวัลค้างจ่าย ฿${fmtBaht(w.balance + w.pending)} — กด “จ่ายเงินรางวัลคงเหลือ (ลาออก)” แล้วปิดใช้งานหลังอนุมัติงวดสุดท้าย` });
+    }
+  }
 
   const data = {
     code,
@@ -261,7 +272,13 @@ export async function setPeriodStatusAction(fd: FormData) {
       ...(to === 'DRAFT' ? { approvedAt: null } : {}),
     },
   });
+  // เงินรางวัลที่แลกในงวดนี้: อนุมัติงวด = จ่ายแล้ว, กลับเป็นร่าง = รอจ่าย
+  if (to === 'APPROVED') await prisma.rewardRedemption.updateMany({ where: { payslipPeriodId: p.id, status: 'APPROVED' }, data: { status: 'PAID' } });
+  if (to === 'DRAFT') await prisma.rewardRedemption.updateMany({ where: { payslipPeriodId: p.id, status: 'PAID' }, data: { status: 'APPROVED' } });
   if (to === 'APPROVED') {
+    // ประเมิน achievement เมื่อข้อมูลทั้งเดือนผ่านการยืนยันแล้ว (งวดที่จบสิ้นเดือน)
+    if (monthRange(p.endDate.slice(0, 7)).end === p.endDate) await evaluateMonthForAll(p.endDate.slice(0, 7));
+    await grantQuickConfirm(p.id);
     const slips = await prisma.payslip.findMany({ where: { periodId: p.id }, select: { id: true, employeeId: true } });
     for (const s of slips) await notify([s.employeeId], { title: `สลิปเงินเดือน ${p.name} พร้อมแล้ว`, link: `/payslips/${s.id}` });
   }
@@ -273,6 +290,7 @@ export async function deletePeriodAction(fd: FormData) {
   await requireAdmin();
   const p = await getPeriod(fd);
   if (p.status !== 'DRAFT') go(`/admin/payroll/${p.id}`, { error: 'ลบได้เฉพาะงวดที่เป็นร่าง' });
+  await prisma.rewardRedemption.updateMany({ where: { payslipPeriodId: p.id, status: 'APPROVED' }, data: { payslipPeriodId: null } });
   await prisma.payrollPeriod.delete({ where: { id: p.id } });
   go('/admin/payroll', { ok: 'ลบงวดแล้ว' });
 }
@@ -349,8 +367,94 @@ export async function saveLeaveTypeAction(fd: FormData) {
   const color = /^#[0-9a-fA-F]{6}$/.test(str(fd, 'color')) ? str(fd, 'color') : '#3b82f6';
   if (!name) go('/admin/leave', { error: 'กรุณากรอกชื่อประเภทการลา' });
   const annualQuota = quotaRaw === '' ? null : Math.max(0, parseInt(quotaRaw, 10) || 0);
-  const data = { name, paid: fd.get('paid') === 'on', annualQuota, color, active: fd.get('active') === 'on' };
+  const data = { name, paid: fd.get('paid') === 'on', sick: fd.get('sick') === 'on', annualQuota, color, active: fd.get('active') === 'on' };
   if (id) await prisma.leaveType.update({ where: { id }, data });
   else await prisma.leaveType.create({ data: { ...data, sortOrder: 99 } });
   go('/admin/leave#types', { ok: `บันทึกประเภท "${name}" แล้ว` });
+}
+
+// ---------- รางวัล / achievement ----------
+export async function saveAchievementSettingsAction(fd: FormData) {
+  await requireAdmin();
+  for (const a of ACHIEVEMENTS) {
+    if (!fd.has(`amount_${a.key}`)) continue;
+    const data = { rewardAmount: Math.max(0, parseBaht(fd.get(`amount_${a.key}`))), active: fd.get(`active_${a.key}`) === 'on' };
+    await prisma.achievementSetting.upsert({ where: { key: a.key }, update: data, create: { key: a.key, ...data } });
+  }
+  go('/admin/rewards#settings', { ok: 'บันทึกการตั้งค่ารางวัลแล้ว' });
+}
+
+export async function manualAwardAction(fd: FormData) {
+  const admin = await requireAdmin();
+  const employeeId = int(fd, 'employeeId');
+  const key = str(fd, 'key');
+  const def = ACHIEVEMENT_BY_KEY.get(key);
+  if (!employeeId || !def || def.kind !== 'MANUAL') go('/admin/rewards', { error: 'กรุณาเลือกพนักงานและ badge' });
+  const note = optStr(fd, 'note');
+  await grant(employeeId, key, `manual-${Date.now()}`, { amount: Math.max(0, parseBaht(fd.get('amount'))), note, byId: admin.id });
+  go('/admin/rewards', { ok: `มอบ “${def.name}” แล้ว` });
+}
+
+export async function revokeAwardAction(fd: FormData) {
+  await requireAdmin();
+  const id = int(fd, 'id');
+  const note = optStr(fd, 'note') ?? 'มอบผิด';
+  const a = id ? await prisma.employeeAchievement.findUnique({ where: { id } }) : null;
+  if (!a || a.revokedAt) go('/admin/rewards', { error: 'ไม่พบรายการ' });
+  const w = await walletOf(a.employeeId);
+  if (w.balance < a.amount) go('/admin/rewards', { error: 'เพิกถอนไม่ได้ เพราะพนักงานแลกเงินส่วนนี้ไปแล้ว' });
+  await prisma.employeeAchievement.update({ where: { id: a.id }, data: { revokedAt: new Date(), revokedNote: note } });
+  go('/admin/rewards', { ok: 'เพิกถอน badge แล้ว' });
+}
+
+async function reviewRedemption(fd: FormData, approve: boolean) {
+  const admin = await requireAdmin();
+  const id = int(fd, 'id');
+  const r = id ? await prisma.rewardRedemption.findUnique({ where: { id } }) : null;
+  if (!r || r.status !== 'PENDING') go('/admin/rewards', { error: 'คำขอนี้ถูกดำเนินการไปแล้ว' });
+  const note = optStr(fd, 'note');
+  await prisma.rewardRedemption.update({
+    where: { id: r.id },
+    data: { status: approve ? 'APPROVED' : 'REJECTED', reviewedById: admin.id, reviewedAt: new Date(), reviewNote: note },
+  });
+  await notify([r.employeeId], {
+    title: approve ? `อนุมัติแลกเงินรางวัล ฿${fmtBaht(r.amount)}` : `ไม่อนุมัติการแลกเงินรางวัล`,
+    body: approve ? 'จะรวมอยู่ในเงินเดือนงวดถัดไป' : note,
+    link: '/rewards',
+  });
+  if (approve) await recomputeDraftPeriods(toDateStr(new Date()), '9999-12-31');
+  go('/admin/rewards', { ok: approve ? 'อนุมัติแล้ว — จะจ่ายในงวดเงินเดือนถัดไป' : 'ไม่อนุมัติแล้ว' });
+}
+export async function approveRedemptionAction(fd: FormData) {
+  return reviewRedemption(fd, true);
+}
+export async function rejectRedemptionAction(fd: FormData) {
+  return reviewRedemption(fd, false);
+}
+
+/** ลาออก: จ่ายเงินรางวัลคงเหลือทั้งหมดในงวดถัดไป */
+export async function resignationPayoutAction(fd: FormData) {
+  const admin = await requireAdmin();
+  const employeeId = int(fd, 'employeeId');
+  if (!employeeId) go('/admin/employees', { error: 'ไม่พบพนักงาน' });
+  const back = `/admin/employees/${employeeId}`;
+  // คำขอที่รออยู่ → อนุมัติรวมไปด้วย
+  await prisma.rewardRedemption.updateMany({ where: { employeeId, status: 'PENDING' }, data: { status: 'APPROVED', reviewedById: admin.id, reviewedAt: new Date() } });
+  const w = await walletOf(employeeId);
+  if (w.balance > 0) {
+    await prisma.rewardRedemption.create({
+      data: { employeeId, amount: w.balance, status: 'APPROVED', reason: 'RESIGNATION', reviewedById: admin.id, reviewedAt: new Date() },
+    });
+  }
+  await recomputeDraftPeriods(toDateStr(new Date()), '9999-12-31');
+  go(back, { ok: 'ตั้งจ่ายเงินรางวัลคงเหลือในงวดถัดไปแล้ว ปิดใช้งานพนักงานได้หลังอนุมัติงวดสุดท้าย' });
+}
+
+/** ประเมิน achievement ของเดือนที่เลือกใหม่ (ไม่ให้ซ้ำ) */
+export async function evaluateAchievementsAction(fd: FormData) {
+  await requireAdmin();
+  const month = str(fd, 'month');
+  if (!/^\d{4}-\d{2}$/.test(month) || monthRange(month).end >= toDateStr(new Date())) go('/admin/rewards', { error: 'เลือกได้เฉพาะเดือนที่จบแล้ว' });
+  const n = await evaluateMonthForAll(month);
+  go('/admin/rewards', { ok: `ประเมินเดือน ${month} แล้ว — มอบ badge ใหม่ ${n} รายการ` });
 }

@@ -8,6 +8,10 @@ import { Flash } from '@/components/Flash';
 import { Avatar } from '@/components/Avatar';
 import { PhotoUploader } from '@/components/PhotoUploader';
 import { EmployeeForm } from '../EmployeeForm';
+import { walletOf } from '@/lib/reward-service';
+import { resignationPayoutAction } from '@/app/admin/actions';
+import { fmtBaht } from '@/lib/money';
+import { ConfirmSubmit } from '@/components/ConfirmSubmit';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +40,7 @@ export default async function EmployeePage({
           <Avatar emp={emp} size={96} />
         </PhotoUploader>
       </div>
+      <WalletCard employeeId={emp.id} />
       <EmployeeForm emp={emp} stores={stores} shifts={shifts} />
       <div className="card">
         <form className="row" method="get">
@@ -47,5 +52,24 @@ export default async function EmployeePage({
         <DaysTable days={days} />
       </div>
     </main>
+  );
+}
+
+async function WalletCard({ employeeId }: { employeeId: number }) {
+  const w = await walletOf(employeeId);
+  if (w.earned === 0) return null;
+  return (
+    <div className="card row">
+      <div className="grow" style={{ flex: 1 }}>
+        <b>🐷 กระปุก KICHI คงเหลือ ฿{fmtBaht(w.balance + w.pending)}</b>
+        <div className="muted">สะสมทั้งหมด ฿{fmtBaht(w.earned)} · แลก/ตั้งจ่ายแล้ว ฿{fmtBaht(w.redeemed)}</div>
+      </div>
+      {w.balance + w.pending > 0 && (
+        <form action={resignationPayoutAction}>
+          <input type="hidden" name="employeeId" value={employeeId} />
+          <ConfirmSubmit className="btn btn-sm" message="ตั้งจ่ายเงินรางวัลคงเหลือทั้งหมดในงวดเงินเดือนถัดไป (กรณีลาออก)?">จ่ายเงินรางวัลคงเหลือ (ลาออก)</ConfirmSubmit>
+        </form>
+      )}
+    </div>
   );
 }

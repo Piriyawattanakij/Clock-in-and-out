@@ -20,13 +20,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const header = [
     'รหัส', 'ชื่อ', 'ประเภทค่าจ้าง', 'ฐานค่าจ้าง', 'วันทำงาน', 'ลา (วัน)', 'ลาไม่รับเงิน (วัน)', 'ขาด (วัน)', 'สาย (นาที)', 'OT (นาที)', 'ทำงานวันหยุด (นาที)', 'OT วันหยุด (นาที)',
-    'ค่าจ้างปกติ', 'ค่าทำงานวันหยุด', 'ค่า OT', 'เบี้ยเลี้ยง', 'โบนัส', 'หักสาย', 'หักขาด', 'รวมรายได้',
+    'ค่าจ้างปกติ', 'ค่าทำงานวันหยุด', 'ค่า OT', 'เบี้ยเลี้ยง', 'โบนัส', 'เงินรางวัลสะสม', 'หักสาย', 'หักขาด', 'รวมรายได้',
     'ประกันสังคม', 'ภาษีหัก ณ ที่จ่าย', 'หักอื่น ๆ', 'รับสุทธิ', 'ธนาคาร', 'เลขบัญชี', 'เลขผู้เสียภาษี', 'หมายเหตุ',
   ];
   const rows = period.payslips.map((s) => [
     s.employee.code, s.employee.name, PAY_TYPE_LABEL[s.payType as PayType], baht(s.baseSalary), s.workDays, s.leaveDays, s.unpaidLeaveDays, s.absentDays,
     s.lateMinutes, s.otMinutes, s.holidayWorkMinutes, s.holidayOtMinutes,
-    baht(s.basePay), baht(s.holidayPay), baht(s.otPay), baht(s.allowance), baht(s.bonus), baht(s.lateDeduction), baht(s.absentDeduction),
+    baht(s.basePay), baht(s.holidayPay), baht(s.otPay), baht(s.allowance), baht(s.bonus), baht(s.rewardPay), baht(s.lateDeduction), baht(s.absentDeduction),
     baht(s.grossPay), baht(s.socialSecurity), baht(s.withholdingTax), baht(s.otherDeduction), baht(s.netPay),
     s.employee.bankName, s.employee.bankAccount, s.employee.taxId, s.note,
   ]);

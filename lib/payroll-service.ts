@@ -91,6 +91,10 @@ export async function computePeriod(periodId: number) {
   });
   // ไม่รวมพนักงานที่เริ่มงานหลังงวดนี้
   const employees = all.filter((e) => employedFrom(e) <= period.endDate);
+  // แลกรางวัลที่อนุมัติแล้วและยังไม่ได้จ่าย → จ่ายในงวดนี้
+  const redemptions = await prisma.rewardRedemption.findMany({
+    where: { employeeId: { in: employees.map((e) => e.id) }, status: 'APPROVED', OR: [{ payslipPeriodId: null }, { payslipPeriodId: periodId }] },
+  });
   const [punches, holidays, leaveCtx] = await Promise.all([
     loadPunches(employees.map((e) => e.id), period.startDate, period.endDate),
     loadHolidays(period.startDate, period.endDate),
@@ -122,6 +126,7 @@ export async function computePeriod(periodId: number) {
           baseSalary: emp.baseSalary,
           allowance: emp.allowance,
           bonus: prev?.bonus ?? 0,
+          rewardPay: redemptions.filter((r) => r.employeeId === emp.id).reduce((a, r) => a + r.amount, 0),
           otherDeduction: prev?.otherDeduction ?? 0,
           socialSecurity: emp.socialSecurity,
           taxDeduction: emp.taxDeduction,
@@ -139,6 +144,9 @@ export async function computePeriod(periodId: number) {
       });
     }),
   ]);
+  if (redemptions.length) {
+    await prisma.rewardRedemption.updateMany({ where: { id: { in: redemptions.map((r) => r.id) } }, data: { payslipPeriodId: periodId } });
+  }
   await prisma.payrollPeriod.update({ where: { id: periodId }, data: { computedAt: new Date() } });
 }
 

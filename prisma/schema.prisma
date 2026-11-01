@@ -67,6 +67,8 @@ model Employee {
   leaveRequests     LeaveRequest[]
   notifications     Notification[]
   confirmations     PeriodConfirmation[]
+  achievements      EmployeeAchievement[]
+  redemptions       RewardRedemption[]
   createdAt      DateTime     @default(now())
 }
 
@@ -148,6 +150,7 @@ model Payslip {
   holidayPay         Int
   otPay              Int
   allowance          Int
+  rewardPay          Int           @default(0) // แลกเงินรางวัลสะสม (เงินได้ครั้งคราว)
   bonus              Int           @default(0)
   lateDeduction      Int
   absentDeduction    Int
@@ -202,6 +205,7 @@ model LeaveType {
   id          Int            @id @default(autoincrement())
   name        String
   paid        Boolean        @default(true)
+  sick        Boolean        @default(false) // ลาป่วย: ไม่ตัดสิทธิ์ "ขยันเต็มเดือน" ถ้าไม่เกินที่ตั้งไว้
   annualQuota Int?
   color       String         @default("#3b82f6")
   sortOrder   Int            @default(0)
@@ -256,4 +260,47 @@ model PeriodConfirmation {
   respondedAt DateTime      @default(now())
 
   @@id([periodId, employeeId])
+}
+
+/// ปรับเงินรางวัล/เปิดปิด ของ achievement แต่ละแบบ (คำจำกัดความอยู่ในโค้ด lib/achievement-defs.ts)
+model AchievementSetting {
+  key          String  @id
+  rewardAmount Int // สตางค์
+  active       Boolean @default(true)
+}
+
+/// badge ที่พนักงานได้รับ
+model EmployeeAchievement {
+  id             Int       @id @default(autoincrement())
+  employeeId     Int
+  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  achievementKey String
+  periodKey      String // เช่น "2026-10" (รายเดือน), "once" (ได้ครั้งเดียว), "manual-…"
+  amount         Int // เงินรางวัล (สตางค์) ณ ตอนได้รับ
+  note           String?
+  awardedById    Int? // null = ระบบให้อัตโนมัติ
+  awardedAt      DateTime  @default(now())
+  claimedAt      DateTime? // กดรับแล้ว (เปิดดู effect)
+  revokedAt      DateTime?
+  revokedNote    String?
+
+  @@unique([employeeId, achievementKey, periodKey])
+  @@index([employeeId])
+}
+
+/// คำขอแลกเงินรางวัลสะสม — อนุมัติแล้วจะเข้าในงวดเงินเดือนถัดไป
+model RewardRedemption {
+  id              Int       @id @default(autoincrement())
+  employeeId      Int
+  employee        Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  amount          Int // สตางค์
+  status          String    @default("PENDING") // PENDING | APPROVED | PAID | REJECTED | CANCELLED
+  reason          String? // RESIGNATION = จ่ายคงเหลือตอนลาออก
+  reviewNote      String?
+  reviewedById    Int?
+  reviewedAt      DateTime?
+  payslipPeriodId Int? // งวดที่จ่าย
+  createdAt       DateTime  @default(now())
+
+  @@index([employeeId, status])
 }

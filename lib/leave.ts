@@ -25,6 +25,7 @@ export interface LeaveTypeDef {
   color: string;
   paid: boolean;
   annualQuota: number | null;
+  sick?: boolean;
 }
 
 export interface LeaveDay {
@@ -34,6 +35,7 @@ export interface LeaveDay {
   color: string;
   /** ได้รับค่าจ้างวันนี้หรือไม่ (ลาเกินสิทธิ์ต่อปี = ไม่ได้รับ) */
   paid: boolean;
+  sick: boolean;
 }
 
 /** วันทำงานตามกะในช่วงวันที่ (ไม่นับวันหยุดประจำสัปดาห์และวันหยุดนักขัตฤกษ์) */
@@ -61,7 +63,7 @@ export function classifyLeaveDays(
       const key = `${date.slice(0, 4)}:${t.id}`;
       const n = used.get(key) ?? 0;
       used.set(key, n + 1);
-      out.set(date, { requestId: r.id, typeId: t.id, name: t.name, color: t.color, paid: t.paid && (t.annualQuota === null || n < t.annualQuota) });
+      out.set(date, { requestId: r.id, typeId: t.id, name: t.name, color: t.color, sick: !!t.sick, paid: t.paid && (t.annualQuota === null || n < t.annualQuota) });
     }
   }
   return out;

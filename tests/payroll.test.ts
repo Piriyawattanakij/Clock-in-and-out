@@ -62,3 +62,16 @@ describe('calcPayslip', () => {
     expect(r.basePay).toBe(1_500_000);
   });
 });
+
+describe('reward redemption (lump sum)', () => {
+  const base = { ...common, socialSecurity: true, payType: 'MONTHLY' as const, baseSalary: 3_000_000, days: [day({})] };
+  it('is not part of social security and taxed incrementally, not annualized', () => {
+    const plain = calcPayslip(base);
+    const withReward = calcPayslip({ ...base, rewardPay: 1_000_000 }); // แลก 10,000 บาท
+    expect(withReward.socialSecurity).toBe(plain.socialSecurity);
+    expect(withReward.grossPay).toBe(plain.grossPay + 1_000_000);
+    // ปกติ: 30,000×12=360,000 −100,000 −60,000 −9,000 = 191,000 → ภาษีปี 2,050
+    // รวมเงินก้อน: +10,000 → 201,000 → ภาษีปี 2,550 → ภาษีส่วนเพิ่ม 500 บาท (ไม่ใช่ 10,000×12)
+    expect(withReward.withholdingTax - plain.withholdingTax).toBe(50_000);
+  });
+});

@@ -17,6 +17,7 @@ const FIELDS: { group: string; items: [keyof AppSettings, string][] }[] = [
       ['holidayOtMultiplier', 'OT ในวันหยุด (เท่า)'],
     ],
   },
+  { group: 'รางวัล (กระปุก KICHI)', items: [['rewardMinRedeem', 'แลกเงินขั้นต่ำ (บาท)'], ['sickGraceDays', 'ลาป่วยได้ไม่เกิน (วัน/เดือน) โดยยังได้ “ขยันเต็มเดือน”']] },
   {
     group: 'ประกันสังคม',
     items: [['ssoRatePercent', 'อัตราเงินสมทบลูกจ้าง (%)'], ['ssoWageMin', 'ฐานค่าจ้างขั้นต่ำ (บาท)'], ['ssoWageCap', 'เพดานฐานค่าจ้าง (บาท)']],

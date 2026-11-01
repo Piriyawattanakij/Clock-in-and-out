@@ -20,6 +20,7 @@ export const ADMIN_LINKS = [
   { href: '/admin/employees', label: 'พนักงาน', desc: 'ข้อมูลและค่าจ้าง', icon: 'users' },
   { href: '/admin/attendance', label: 'บันทึกเวลาเข้า-ออก', desc: 'ตรวจ / แก้ไขเวลา', icon: 'list' },
   { href: '/admin/leave', label: 'วันลา', desc: 'อนุมัติ / ตารางวันลา', icon: 'leave' },
+  { href: '/admin/rewards', label: 'รางวัล', desc: 'badge / แลกเงิน', icon: 'reward' },
   { href: '/admin/announcements', label: 'ประกาศ', desc: 'แจ้งข่าวถึงพนักงาน', icon: 'megaphone' },
   { href: '/admin/payroll', label: 'เงินเดือน', desc: 'คำนวณ / อนุมัติ / สลิป', icon: 'wallet' },
   { href: '/admin/stores', label: 'ร้าน / สาขา', desc: 'พิกัดและรัศมี', icon: 'store' },
