@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { fmtBaht } from '@/lib/money';
 import { PAY_TYPE_LABEL, type PayType } from '@/lib/payroll';
+import { Avatar } from '@/components/Avatar';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ export default async function EmployeesPage() {
             {employees.map((e) => (
               <tr key={e.id}>
                 <td><Link href={`/admin/employees/${e.id}`}>{e.code}</Link></td>
-                <td>{e.name} {e.role === 'ADMIN' && <span className="badge">ผู้ดูแล</span>}</td>
+                <td><span className="row" style={{ gap: 8, flexWrap: 'nowrap' }}><Avatar emp={e} size={32} />{e.name} {e.role === 'ADMIN' && <span className="badge">ผู้ดูแล</span>}</span></td>
                 <td>{e.position ?? '-'}</td>
                 <td>{e.store?.name ?? '-'}</td>
                 <td>{e.shift?.name ?? '-'}</td>

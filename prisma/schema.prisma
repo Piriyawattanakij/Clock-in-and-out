@@ -42,6 +42,8 @@ model Employee {
   role           String       @default("STAFF") // STAFF | ADMIN
   passwordHash   String
   active         Boolean      @default(true)
+  photoUpdatedAt DateTime? // มีรูปโปรไฟล์หรือไม่ (ใช้ทำ cache-busting)
+  photo          EmployeePhoto?
   startDate      String? // วันเริ่มงาน YYYY-MM-DD (ก่อนวันนี้จะไม่นับขาดงาน/ไม่คิดเงินเดือน)
   storeId        Int?
   store          Store?       @relation(fields: [storeId], references: [id])
@@ -149,4 +151,13 @@ model Payslip {
   updatedAt          DateTime      @updatedAt
 
   @@unique([periodId, employeeId])
+}
+
+/// รูปพนักงาน — เก็บในฐานข้อมูล (ย่อขนาดแล้ว) เพื่อให้ใช้ได้ทั้งในเครื่องและบน hosting ที่ไม่มีที่เก็บไฟล์ถาวร
+model EmployeePhoto {
+  employeeId Int      @id
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  data       Bytes
+  mimeType   String
+  updatedAt  DateTime @updatedAt
 }

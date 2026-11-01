@@ -6,6 +6,8 @@ import { logoutAction } from '@/app/actions/auth';
 import { PAY_TYPE_LABEL, type PayType } from '@/lib/payroll';
 import { Icon } from '@/components/Icon';
 import { BrandLogo } from '@/components/BrandLogo';
+import { Avatar } from '@/components/Avatar';
+import { PhotoUploader } from '@/components/PhotoUploader';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,8 +28,10 @@ export default async function MePage() {
   return (
     <main className="container narrow">
       <div className="card" style={{ textAlign: 'center', paddingTop: 24 }}>
-        <div className="avatar lg" style={{ margin: '0 auto 10px' }}>{user.name.trim().charAt(0)}</div>
-        <h1 style={{ margin: 0 }}>{user.name}</h1>
+        <PhotoUploader employeeId={user.id} hasPhoto={!!user.photoUpdatedAt}>
+          <Avatar emp={user} size={112} className="ring-gold" />
+        </PhotoUploader>
+        <h1 style={{ margin: '14px 0 0' }}>{user.name}</h1>
         <div className="muted">{user.role === 'ADMIN' ? 'ผู้ดูแลระบบ' : 'พนักงาน'}</div>
       </div>
       <div className="card" style={{ padding: '4px 16px' }}>

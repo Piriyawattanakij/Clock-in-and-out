@@ -4,6 +4,7 @@ import { summarizeDays, toShiftDef, STATUS_LABEL } from '@/lib/attendance';
 import { employedFrom, holidaySetFor, loadHolidays, loadPunches } from '@/lib/payroll-service';
 import { getSettings } from '@/lib/settings';
 import { fmtDate, fmtMinutes, fmtTime, toDateStr } from '@/lib/time';
+import { Avatar } from '@/components/Avatar';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,7 +52,7 @@ export default async function AdminHome() {
           <tbody>
             {rows.map(({ e, d, working }) => (
               <tr key={e.id}>
-                <td><Link href={`/admin/employees/${e.id}`}>{e.code} {e.name}</Link></td>
+                <td><Link href={`/admin/employees/${e.id}`} className="row" style={{ gap: 8, flexWrap: 'nowrap' }}><Avatar emp={e} size={32} />{e.code} {e.name}</Link></td>
                 <td>{e.store?.name ?? '-'}</td>
                 <td>
                   {working ? <span className="badge badge-ok">กำลังทำงาน</span>
