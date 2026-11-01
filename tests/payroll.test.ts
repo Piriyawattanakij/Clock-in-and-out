@@ -3,7 +3,7 @@ import { calcPayslip, progressiveTax, DEFAULT_PAYROLL_SETTINGS as S } from '@/li
 import type { DaySummary } from '@/lib/attendance';
 
 function day(over: Partial<DaySummary>): DaySummary {
-  return { date: '2026-11-02', scheduled: true, holiday: false, firstIn: null, lastOut: null, workedMinutes: 480, regularMinutes: 480, lateMinutes: 0, otMinutes: 0, status: 'PRESENT', ...over };
+  return { date: '2026-11-02', scheduled: true, holiday: false, firstIn: null, lastOut: null, workedMinutes: 480, regularMinutes: 480, lateMinutes: 0, otMinutes: 0, status: 'PRESENT', leave: null, ...over };
 }
 const common = { allowance: 0, bonus: 0, otherDeduction: 0, socialSecurity: false, taxDeduction: 0, periodDays: 30, fullMonth: true };
 

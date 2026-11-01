@@ -9,6 +9,7 @@ import { Avatar } from '@/components/Avatar';
 import { Icon } from '@/components/Icon';
 import { NotificationBell } from '@/components/NotificationBell';
 import { unreadWhere } from '@/lib/announcements';
+import { myDraftPeriods } from '@/lib/confirm-service';
 import { ClockPanel } from './ClockPanel';
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,7 @@ export default async function ClockPage() {
   const user = await requireUser();
   const now = new Date();
   const today = toDateStr(now);
-  const [store, last, todays, news] = await Promise.all([
+  const [store, last, todays, news, drafts] = await Promise.all([
     user.storeId ? prisma.store.findUnique({ where: { id: user.storeId } }) : null,
     prisma.attendance.findFirst({ where: { employeeId: user.id, voidedAt: null }, orderBy: { timestamp: 'desc' } }),
     prisma.attendance.findMany({
@@ -32,7 +33,9 @@ export default async function ClockPage() {
       orderBy: { timestamp: 'asc' },
     }),
     prisma.announcement.findFirst({ where: unreadWhere(user), orderBy: [{ important: 'desc' }, { createdAt: 'desc' }] }),
+    myDraftPeriods(user.id),
   ]);
+  const toConfirm = drafts.find((d) => d.actionNeeded);
   const next = nextPunchType(last, now);
   const firstIn = todays.find((a) => a.type === 'IN');
   const lastOut = [...todays].reverse().find((a) => a.type === 'OUT');
@@ -68,6 +71,17 @@ export default async function ClockPage() {
           </div>
         )}
       </section>
+
+      {toConfirm && (
+        <Link href={`/confirm/${toConfirm.period.id}`} className="list-item news-banner confirm-banner">
+          <span className="news-icon"><Icon name="confirm" size={20} /></span>
+          <div className="grow">
+            <div className="sub">{toConfirm.state === 'NONE' ? 'ถึงเวลายืนยันวันทำงาน' : 'ข้อมูลถูกปรับแล้ว กรุณายืนยันอีกครั้ง'}</div>
+            <b className="news-title">{toConfirm.period.name}</b>
+          </div>
+          <Icon name="chevron" size={18} className="muted" />
+        </Link>
+      )}
 
       {news && (
         <Link href={`/announcements/${news.id}`} className="list-item news-banner">

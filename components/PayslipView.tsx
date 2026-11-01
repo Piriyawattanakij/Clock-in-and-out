@@ -14,7 +14,7 @@ export function PayslipView({ slip }: { slip: Payslip & { employee: Employee; pe
   ];
   const deduct: [string, number][] = [
     ['หักมาสาย', slip.lateDeduction],
-    ['หักขาดงาน', slip.absentDeduction],
+    ['หักขาดงาน / ลาไม่รับเงิน', slip.absentDeduction],
     ['ประกันสังคม', slip.socialSecurity],
     ['ภาษีหัก ณ ที่จ่าย', slip.withholdingTax],
     ['หักอื่น ๆ', slip.otherDeduction],
@@ -42,7 +42,7 @@ export function PayslipView({ slip }: { slip: Payslip & { employee: Employee; pe
       <div className="grid grid-2" style={{ margin: '16px 0' }}>
         <div className="stat"><span className="muted">พนักงาน</span><b>{slip.employee.name}</b><span className="muted">{slip.employee.code} {slip.employee.position ?? ''}</span></div>
         <div className="stat"><span className="muted">ประเภทค่าจ้าง</span><b>{PAY_TYPE_LABEL[slip.payType as PayType]}</b><span className="muted">{fmtBaht(slip.baseSalary)} บาท</span></div>
-        <div className="stat"><span className="muted">วันทำงาน / ขาด</span><b>{slip.workDays} / {slip.absentDays} วัน</b></div>
+        <div className="stat"><span className="muted">วันทำงาน / ลา / ขาด</span><b>{slip.workDays} / {slip.leaveDays + slip.unpaidLeaveDays} / {slip.absentDays} วัน</b>{slip.unpaidLeaveDays > 0 && <span className="muted">ลาไม่รับเงิน {slip.unpaidLeaveDays} วัน</span>}</div>
         <div className="stat"><span className="muted">สาย / OT</span><b>{fmtMinutes(slip.lateMinutes)} / {fmtMinutes(slip.otMinutes + slip.holidayOtMinutes)}</b></div>
       </div>
       <div className="grid">

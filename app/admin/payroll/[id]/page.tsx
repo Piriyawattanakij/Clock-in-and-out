@@ -7,14 +7,21 @@ import { fmtDate, fmtDateTime, fmtMinutes } from '@/lib/time';
 import { Flash } from '@/components/Flash';
 import { PeriodStatus } from '../PeriodStatus';
 
+import { ConfirmSubmit } from '@/components/ConfirmSubmit';
+import { CONFIRM_BADGE, CONFIRM_LABEL, confirmState, slipSnapshot } from '@/lib/confirmation';
+
 export const dynamic = 'force-dynamic';
 
-function StatusButton({ periodId, to, label, primary }: { periodId: number; to: string; label: string; primary?: boolean }) {
+function StatusButton({ periodId, to, label, primary, confirmMessage }: { periodId: number; to: string; label: string; primary?: boolean; confirmMessage?: string }) {
   return (
     <form action={setPeriodStatusAction}>
       <input type="hidden" name="periodId" value={periodId} />
       <input type="hidden" name="to" value={to} />
-      <button className={`btn ${primary ? 'btn-primary' : ''}`}>{label}</button>
+      {confirmMessage ? (
+        <ConfirmSubmit className={`btn ${primary ? 'btn-primary' : ''}`} message={confirmMessage}>{label}</ConfirmSubmit>
+      ) : (
+        <button className={`btn ${primary ? 'btn-primary' : ''}`}>{label}</button>
+      )}
     </form>
   );
 }
@@ -31,11 +38,16 @@ export default async function PeriodPage({
   const period = Number.isInteger(id)
     ? await prisma.payrollPeriod.findUnique({
         where: { id },
-        include: { payslips: { include: { employee: true }, orderBy: { employee: { code: 'asc' } } } },
+        include: { payslips: { include: { employee: true }, orderBy: { employee: { code: 'asc' } } }, confirmations: true },
       })
     : null;
   if (!period) notFound();
   const draft = period.status === 'DRAFT';
+  const confs = new Map(period.confirmations.map((c) => [c.employeeId, c]));
+  const stateOf = (s: (typeof period.payslips)[number]) => confirmState(confs.get(s.employeeId), slipSnapshot(s));
+  const confirmed = period.payslips.filter((s) => stateOf(s) === 'CONFIRMED').length;
+  const disputes = period.payslips.filter((s) => stateOf(s) === 'DISPUTED');
+  const unconfirmed = period.payslips.length - confirmed;
   const total = (k: 'grossPay' | 'socialSecurity' | 'withholdingTax' | 'netPay') => period.payslips.reduce((a, s) => a + s[k], 0);
 
   return (
@@ -58,7 +70,13 @@ export default async function PeriodPage({
               <input type="hidden" name="periodId" value={period.id} />
               <button className="btn">🔄 คำนวณใหม่</button>
             </form>
-            <StatusButton periodId={period.id} to="APPROVED" label="✔ อนุมัติ (พนักงานจะเห็นสลิป)" primary />
+            <StatusButton
+              periodId={period.id}
+              to="APPROVED"
+              label="✔ อนุมัติ (พนักงานจะเห็นสลิป)"
+              primary
+              confirmMessage={unconfirmed > 0 ? `ยังมีพนักงานที่ยังไม่ยืนยันวันทำงาน ${unconfirmed} คน${disputes.length ? ` (แจ้งแก้ไข ${disputes.length} คน)` : ''}\nต้องการอนุมัติต่อหรือไม่?` : undefined}
+            />
           </>
         )}
         {period.status === 'APPROVED' && (
@@ -77,7 +95,24 @@ export default async function PeriodPage({
         )}
       </div>
 
-      <div className="grid">
+      {disputes.length > 0 && (
+        <div className="card" style={{ borderColor: 'var(--err)' }}>
+          <b style={{ color: 'var(--err)' }}>พนักงานแจ้งแก้ไข {disputes.length} คน</b>
+          <p className="muted" style={{ margin: '4px 0 8px' }}>แก้เวลาที่หน้า “บันทึกเวลาเข้า-ออก” แล้วระบบจะคำนวณใหม่อัตโนมัติ และให้พนักงานยืนยันอีกครั้ง</p>
+          {disputes.map((s) => (
+            <div key={s.id} className="list-item" style={{ marginTop: 6 }}>
+              <div className="grow">
+                <b>{s.employee.name}</b>
+                <div className="dispute-note">“{confs.get(s.employeeId)?.note}”</div>
+              </div>
+              <Link className="btn btn-sm" href={`/admin/attendance?employeeId=${s.employeeId}`}>แก้เวลา</Link>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="grid grid-2">
+        <div className="card stat"><span className="muted">พนักงานยืนยันแล้ว</span><b>{confirmed}/{period.payslips.length}</b></div>
         <div className="card stat"><span className="muted">รวมรายได้</span><b>{fmtBaht(total('grossPay'))}</b></div>
         <div className="card stat"><span className="muted">ประกันสังคม</span><b>{fmtBaht(total('socialSecurity'))}</b></div>
         <div className="card stat"><span className="muted">ภาษีหัก ณ ที่จ่าย</span><b>{fmtBaht(total('withholdingTax'))}</b></div>
@@ -88,7 +123,7 @@ export default async function PeriodPage({
         <table>
           <thead>
             <tr>
-              <th>พนักงาน</th><th className="num">วันทำงาน</th><th className="num">ขาด</th><th className="num">สาย</th><th className="num">OT</th>
+              <th>พนักงาน</th><th>ยืนยัน</th><th className="num">วันทำงาน</th><th className="num">ลา</th><th className="num">ขาด</th><th className="num">สาย</th><th className="num">OT</th>
               <th className="num">ค่าจ้าง</th><th className="num">OT/วันหยุด</th><th className="num">หักสาย/ขาด</th>
               <th className="num">ประกันสังคม</th><th className="num">ภาษี</th><th className="num">สุทธิ</th><th></th>
             </tr>
@@ -97,7 +132,9 @@ export default async function PeriodPage({
             {period.payslips.map((s) => (
               <tr key={s.id}>
                 <td>{s.employee.code} {s.employee.name}</td>
+                <td><span className={`badge ${CONFIRM_BADGE[stateOf(s)]}`}>{CONFIRM_LABEL[stateOf(s)]}</span></td>
                 <td className="num">{s.workDays}</td>
+                <td className="num">{s.leaveDays + s.unpaidLeaveDays || '-'}</td>
                 <td className="num">{s.absentDays || '-'}</td>
                 <td className="num">{fmtMinutes(s.lateMinutes)}</td>
                 <td className="num">{fmtMinutes(s.otMinutes + s.holidayOtMinutes)}</td>

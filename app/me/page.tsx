@@ -49,6 +49,11 @@ export default async function MePage() {
           <span className="grow"><b>ประกาศจากร้าน</b></span>
           <Icon name="chevron" className="muted" />
         </Link>
+        <Link href="/payslips" className="list-item">
+          <span className="menu-icon"><Icon name="receipt" /></span>
+          <span className="grow"><b>สลิปเงินเดือน</b></span>
+          <Icon name="chevron" className="muted" />
+        </Link>
         <Link href="/me/password" className="list-item">
           <span className="menu-icon"><Icon name="key" /></span>
           <span className="grow"><b>เปลี่ยนรหัสผ่าน</b></span>

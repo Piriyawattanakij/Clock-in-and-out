@@ -40,6 +40,18 @@ async function main() {
     if (!(await prisma.holiday.findFirst({ where: { date: h.date } }))) await prisma.holiday.create({ data: h });
   }
 
+  // ประเภทการลาเริ่มต้น (อ้างอิงกฎหมายแรงงานไทย — แก้ได้ที่หน้า "วันลา")
+  if ((await prisma.leaveType.count()) === 0) {
+    await prisma.leaveType.createMany({
+      data: [
+        { name: 'ลาป่วย', paid: true, annualQuota: 30, color: '#8b5cf6', sortOrder: 1 },
+        { name: 'ลากิจ', paid: true, annualQuota: 3, color: '#c9962f', sortOrder: 2 },
+        { name: 'ลาพักร้อน', paid: true, annualQuota: 6, color: '#3b82f6', sortOrder: 3 },
+        { name: 'ลาไม่รับเงิน', paid: false, annualQuota: null, color: '#8b8378', sortOrder: 4 },
+      ],
+    });
+  }
+
   console.log('Seed เรียบร้อย — admin / admin1234, E001 / 1234, E002 / 1234');
 }
 

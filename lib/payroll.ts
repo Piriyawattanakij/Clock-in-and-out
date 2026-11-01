@@ -89,6 +89,8 @@ export interface PayslipInput {
 export interface PayslipResult {
   workDays: number;
   absentDays: number;
+  leaveDays: number;
+  unpaidLeaveDays: number;
   workMinutes: number;
   lateMinutes: number;
   otMinutes: number;
@@ -118,6 +120,8 @@ export function calcPayslip(input: PayslipInput, s: PayrollSettings = DEFAULT_PA
 
   const workDays = sched.filter((d) => d.status === 'PRESENT' || d.status === 'INCOMPLETE').length;
   const absentDays = sched.filter((d) => d.status === 'ABSENT').length;
+  const leaveDays = sched.filter((d) => d.status === 'LEAVE' && d.leave?.paid).length;
+  const unpaidLeaveDays = sched.filter((d) => d.status === 'LEAVE' && !d.leave?.paid).length;
   const workMinutes = sum(sched.map((d) => d.regularMinutes));
   const lateMinutes = sum(sched.map((d) => d.lateMinutes));
   const otMinutes = sum(sched.map((d) => d.otMinutes));
@@ -141,7 +145,11 @@ export function calcPayslip(input: PayslipInput, s: PayrollSettings = DEFAULT_PA
   const r = Math.round;
 
   const basePay = r(
-    payType === 'MONTHLY' ? baseSalary * prorate : payType === 'DAILY' ? workDays * daily : (workMinutes / 60) * hourly,
+    payType === 'MONTHLY'
+      ? baseSalary * prorate
+      : payType === 'DAILY'
+        ? (workDays + leaveDays) * daily // ลาแบบได้รับเงิน = ได้ค่าแรงเต็มวัน
+        : (workMinutes / 60 + leaveDays * s.hoursPerDay) * hourly,
   );
   const holidayPay = r((holidayWorkMinutes / 60) * hourly * (payType === 'MONTHLY' ? s.holidayWorkMultiplierMonthly : s.holidayWorkMultiplierOther));
   const otPay = r((otMinutes / 60) * hourly * s.otMultiplier + (holidayOtMinutes / 60) * hourly * s.holidayOtMultiplier);
@@ -149,7 +157,8 @@ export function calcPayslip(input: PayslipInput, s: PayrollSettings = DEFAULT_PA
   // รายชั่วโมงคิดตามเวลาจริงอยู่แล้ว จึงไม่หักสายซ้ำ
   const lateDeduction = s.deductLate && payType !== 'HOURLY' ? r((lateMinutes / 60) * hourly) : 0;
   // รายวัน/รายชั่วโมง วันที่ขาดก็ไม่ได้ค่าแรงอยู่แล้ว
-  const absentDeduction = payType === 'MONTHLY' ? r(absentDays * daily) : 0;
+  // รายเดือน: หักวันขาดงาน + วันลาไม่รับเงิน
+  const absentDeduction = payType === 'MONTHLY' ? r((absentDays + unpaidLeaveDays) * daily) : 0;
 
   const grossPay = Math.max(0, basePay + holidayPay + otPay + allowance + input.bonus - lateDeduction - absentDeduction);
 
@@ -166,6 +175,8 @@ export function calcPayslip(input: PayslipInput, s: PayrollSettings = DEFAULT_PA
   return {
     workDays,
     absentDays,
+    leaveDays,
+    unpaidLeaveDays,
     workMinutes,
     lateMinutes,
     otMinutes,

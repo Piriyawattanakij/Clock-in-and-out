@@ -1,4 +1,5 @@
 import { addDays, atTime, eachDate, toDateStr, weekday } from './time';
+import type { LeaveDay } from './leave';
 
 /** ถ้าบันทึกเข้าแล้วไม่บันทึกออกเกินเวลานี้ ถือว่าลืมบันทึกออก และครั้งถัดไปจะเป็นการบันทึกเข้าใหม่ */
 export const MAX_SESSION_HOURS = 20;
@@ -24,7 +25,7 @@ export interface Session {
   out: Date | null;
 }
 
-export type DayStatus = 'PRESENT' | 'INCOMPLETE' | 'ABSENT' | 'OFF' | 'PENDING';
+export type DayStatus = 'PRESENT' | 'INCOMPLETE' | 'ABSENT' | 'LEAVE' | 'OFF' | 'PENDING';
 
 export interface DaySummary {
   date: string;
@@ -39,6 +40,8 @@ export interface DaySummary {
   lateMinutes: number;
   otMinutes: number;
   status: DayStatus;
+  /** วันลาที่อนุมัติแล้ว (ถ้ามี) */
+  leave: LeaveDay | null;
 }
 
 export const DEFAULT_SHIFT: ShiftDef = {
@@ -107,6 +110,8 @@ export interface SummarizeOptions {
   otBlockMinutes?: number;
   /** วันเริ่มงาน — ก่อนหน้านี้ไม่นับเป็นวันทำงาน/ขาดงาน */
   employedFrom?: string | null;
+  /** วันลาที่อนุมัติแล้ว (จาก classifyLeaveDays) */
+  leaves?: Map<string, LeaveDay>;
 }
 
 /** สรุปการทำงานรายวัน: ชั่วโมงทำงาน, มาสาย, OT, ขาดงาน */
@@ -128,11 +133,12 @@ export function summarizeDays(opts: SummarizeOptions): DaySummary[] {
     const list = byDate.get(date) ?? [];
     const { start, end } = shiftBounds(date, shift);
     const standard = Math.max(0, mins(end.getTime() - start.getTime()) - shift.breakMinutes);
-    const empty = { date, scheduled, holiday, firstIn: null, lastOut: null, workedMinutes: 0, regularMinutes: 0, lateMinutes: 0, otMinutes: 0 };
+    const leave = scheduled ? (opts.leaves?.get(date) ?? null) : null;
+    const empty = { date, scheduled, holiday, firstIn: null, lastOut: null, workedMinutes: 0, regularMinutes: 0, lateMinutes: 0, otMinutes: 0, leave };
 
     if (!employed) return { ...empty, status: 'OFF' };
     if (list.length === 0) {
-      const status: DayStatus = !scheduled ? 'OFF' : date < today ? 'ABSENT' : 'PENDING';
+      const status: DayStatus = !scheduled ? 'OFF' : leave ? 'LEAVE' : date < today ? 'ABSENT' : 'PENDING';
       return { ...empty, status };
     }
 
@@ -174,6 +180,7 @@ export const STATUS_LABEL: Record<DayStatus, string> = {
   PRESENT: 'มาทำงาน',
   INCOMPLETE: 'ไม่ได้บันทึกออก',
   ABSENT: 'ขาดงาน',
+  LEAVE: 'ลา',
   OFF: 'วันหยุด',
   PENDING: '-',
 };
