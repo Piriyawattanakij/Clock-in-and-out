@@ -82,3 +82,12 @@ export function toLocalInput(d: Date): string {
 export function fromLocalInput(v: string): Date {
   return new Date(`${v}:00+07:00`);
 }
+
+export function shiftMonth(month: string, n: number): string {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7);
+}
+
+export function monthLabel(month: string): string {
+  return new Date(`${month}-15T12:00:00+07:00`).toLocaleDateString('th-TH', { month: 'long', year: 'numeric', timeZone: TZ });
+}
