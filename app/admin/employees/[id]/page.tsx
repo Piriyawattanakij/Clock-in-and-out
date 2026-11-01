@@ -5,6 +5,8 @@ import { employeeDays } from '@/lib/payroll-service';
 import { monthRange, toDateStr } from '@/lib/time';
 import { DaysTable } from '@/components/DaysTable';
 import { Flash } from '@/components/Flash';
+import { Avatar } from '@/components/Avatar';
+import { PhotoUploader } from '@/components/PhotoUploader';
 import { EmployeeForm } from '../EmployeeForm';
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +31,11 @@ export default async function EmployeePage({
       <Link href="/admin/employees">← พนักงานทั้งหมด</Link>
       <h1>{emp.code} — {emp.name}</h1>
       <Flash ok={sp.ok} error={sp.error} />
+      <div className="card">
+        <PhotoUploader employeeId={emp.id} hasPhoto={!!emp.photoUpdatedAt}>
+          <Avatar emp={emp} size={96} />
+        </PhotoUploader>
+      </div>
       <EmployeeForm emp={emp} stores={stores} shifts={shifts} />
       <div className="card">
         <form className="row" method="get">

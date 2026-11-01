@@ -1,10 +1,11 @@
 import Link from 'next/link';
-import { LogIn, LogOut, MapPin, Timer } from 'lucide-react';
+import { Camera, LogIn, LogOut, MapPin, Timer } from 'lucide-react';
 import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/auth';
 import { buildSessions, nextPunchType } from '@/lib/attendance';
 import { addDays, atTime, fmtDate, fmtMinutes, fmtTime, toDateStr } from '@/lib/time';
 import { BrandLogo } from '@/components/BrandLogo';
+import { Avatar } from '@/components/Avatar';
 import { ClockPanel } from './ClockPanel';
 
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,6 @@ export default async function ClockPage() {
     <main className="container narrow">
       <div className="app-bar only-mobile">
         <BrandLogo height={44} />
-        <Link href="/me" className="avatar solid" aria-label="บัญชีของฉัน">{user.name.trim().charAt(0)}</Link>
       </div>
       <section className="hero">
         <div className="row" style={{ alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
@@ -46,6 +46,16 @@ export default async function ClockPage() {
             <h1>{user.name}</h1>
             <div className="muted" style={{ marginTop: 2 }}>{fmtDate(now)}</div>
           </div>
+          <Link href="/me" className="hero-photo" aria-label="บัญชีของฉัน / เปลี่ยนรูป">
+            {user.photoUpdatedAt ? (
+              <Avatar emp={user} size={84} className="ring-gold" />
+            ) : (
+              <>
+                <span className="add-photo" style={{ width: 76, height: 76 }}><Camera size={26} /></span>
+                <small>เพิ่มรูป</small>
+              </>
+            )}
+          </Link>
         </div>
         {store && (
           <div style={{ marginTop: 14, position: 'relative', zIndex: 1 }}>
