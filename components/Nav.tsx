@@ -1,33 +1,34 @@
 import Link from 'next/link';
+import { LogOut } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { logoutAction } from '@/app/actions/auth';
+import { ADMIN_LINKS } from '@/lib/nav';
+import { BottomNav } from './BottomNav';
+import { BrandLogo } from './BrandLogo';
 
 export async function Nav() {
   const user = await getCurrentUser();
   if (!user) return null;
   const admin = user.role === 'ADMIN';
   return (
-    <header className="nav">
-      <div className="inner">
-        <Link href="/" className="brand">⏱ ตอกเวลา</Link>
-        <Link href="/clock" className="link">ตอกเวลา</Link>
-        <Link href="/history" className="link">ประวัติ</Link>
-        <Link href="/payslips" className="link">สลิปเงินเดือน</Link>
-        {admin && (
-          <>
-            <Link href="/admin" className="link">ภาพรวม</Link>
-            <Link href="/admin/employees" className="link">พนักงาน</Link>
-            <Link href="/admin/stores" className="link">ร้าน</Link>
-            <Link href="/admin/shifts" className="link">กะ/วันหยุด</Link>
-            <Link href="/admin/attendance" className="link">การตอกเวลา</Link>
-            <Link href="/admin/payroll" className="link">เงินเดือน</Link>
-            <Link href="/admin/settings" className="link">ตั้งค่า</Link>
-          </>
-        )}
-        <form action={logoutAction}>
-          <button className="btn btn-sm" type="submit">ออกจากระบบ ({user.name})</button>
-        </form>
-      </div>
-    </header>
+    <>
+      {/* คอมพิวเตอร์: แถบด้านบน */}
+      <header className="nav">
+        <div className="inner">
+          <Link href="/" className="brand"><BrandLogo height={34} /><span className="brand-sub">ตอกเวลา</span></Link>
+          <Link href="/clock" className="link">ตอกเวลา</Link>
+          <Link href="/history" className="link">ประวัติ</Link>
+          <Link href="/payslips" className="link">สลิปเงินเดือน</Link>
+          {admin && ADMIN_LINKS.map((l) => (
+            <Link key={l.href} href={l.href} className="link">{l.label}</Link>
+          ))}
+          <form action={logoutAction}>
+            <button className="btn btn-sm" type="submit"><LogOut size={16} /> {user.name}</button>
+          </form>
+        </div>
+      </header>
+      {/* มือถือ: แถบด้านล่างแบบแอพ */}
+      <BottomNav isAdmin={admin} />
+    </>
   );
 }

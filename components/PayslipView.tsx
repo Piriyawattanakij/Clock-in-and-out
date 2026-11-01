@@ -2,6 +2,7 @@ import type { Employee, Payslip, PayrollPeriod } from '@prisma/client';
 import { fmtBaht } from '@/lib/money';
 import { PAY_TYPE_LABEL, type PayType } from '@/lib/payroll';
 import { fmtDate, fmtMinutes } from '@/lib/time';
+import { BrandLogo } from './BrandLogo';
 
 export function PayslipView({ slip }: { slip: Payslip & { employee: Employee; period: PayrollPeriod } }) {
   const income: [string, number][] = [
@@ -21,6 +22,12 @@ export function PayslipView({ slip }: { slip: Payslip & { employee: Employee; pe
   const deductTotal = deduct.reduce((a, [, v]) => a + v, 0) - slip.lateDeduction - slip.absentDeduction;
 
   return (
+    <>
+    <div className="hero net-hero">
+      <div className="muted">รับสุทธิ · {slip.period.name}</div>
+      <div className="amount">฿{fmtBaht(slip.netPay)}</div>
+      <div className="muted">{fmtDate(slip.period.startDate)} – {fmtDate(slip.period.endDate)}</div>
+    </div>
     <div className="card slip">
       <div className="row">
         <div>
@@ -29,8 +36,10 @@ export function PayslipView({ slip }: { slip: Payslip & { employee: Employee; pe
             {fmtDate(slip.period.startDate)} – {fmtDate(slip.period.endDate)}
           </div>
         </div>
+        <span className="spacer" />
+        <BrandLogo height={48} />
       </div>
-      <div className="grid" style={{ margin: '16px 0' }}>
+      <div className="grid grid-2" style={{ margin: '16px 0' }}>
         <div className="stat"><span className="muted">พนักงาน</span><b>{slip.employee.name}</b><span className="muted">{slip.employee.code} {slip.employee.position ?? ''}</span></div>
         <div className="stat"><span className="muted">ประเภทค่าจ้าง</span><b>{PAY_TYPE_LABEL[slip.payType as PayType]}</b><span className="muted">{fmtBaht(slip.baseSalary)} บาท</span></div>
         <div className="stat"><span className="muted">วันทำงาน / ขาด</span><b>{slip.workDays} / {slip.absentDays} วัน</b></div>
@@ -66,5 +75,6 @@ export function PayslipView({ slip }: { slip: Payslip & { employee: Employee; pe
       </div>
       {slip.note && <p className="muted">หมายเหตุ: {slip.note}</p>}
     </div>
+    </>
   );
 }
