@@ -5,11 +5,12 @@ import { Prisma } from '@prisma/client';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
-import { requireAdmin } from '@/lib/auth';
+import { createSession, requireAdmin } from '@/lib/auth';
 import { parseBaht } from '@/lib/money';
-import { computePeriod } from '@/lib/payroll-service';
+import { computePeriod, recomputeDraftPeriods } from '@/lib/payroll-service';
+import { notify } from '@/lib/notifications';
 import { DEFAULT_SETTINGS, saveSettings, type AppSettings } from '@/lib/settings';
-import { fromLocalInput, isValidDateStr, isValidTime, monthRange } from '@/lib/time';
+import { fmtDate, fromLocalInput, isValidDateStr, isValidTime, monthRange, toDateStr } from '@/lib/time';
 
 // ---------- helpers ----------
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? '').trim();
@@ -65,7 +66,9 @@ export async function saveEmployeeAction(fd: FormData) {
     bankName: optStr(fd, 'bankName'),
     bankAccount: optStr(fd, 'bankAccount'),
     taxId: optStr(fd, 'taxId'),
-    ...(password ? { passwordHash: await bcrypt.hash(password, 10) } : {}),
+    ...(password
+      ? { passwordHash: await bcrypt.hash(password, 10), passwordChangedAt: new Date(), mustChangePassword: id !== admin.id }
+      : {}),
   };
 
   let savedId: number;
@@ -81,8 +84,11 @@ export async function saveEmployeeAction(fd: FormData) {
     if (isUnique(e)) go(back, { error: `รหัสพนักงาน "${code}" มีอยู่แล้ว` });
     throw e;
   }
+  if (password && savedId === admin.id) await createSession(admin.id); // เปลี่ยนรหัสตัวเอง → ไม่ต้อง login ใหม่บนเครื่องนี้
   revalidatePath('/admin/employees');
-  go(`/admin/employees/${savedId}`, { ok: 'บันทึกข้อมูลพนักงานแล้ว' });
+  go(`/admin/employees/${savedId}`, {
+    ok: password && savedId !== admin.id ? 'บันทึกแล้ว — พนักงานจะต้องตั้งรหัสผ่านใหม่เองเมื่อเข้าใช้ครั้งถัดไป' : 'บันทึกข้อมูลพนักงานแล้ว',
+  });
 }
 
 // ---------- ร้าน ----------
@@ -140,7 +146,7 @@ export async function deleteHolidayAction(fd: FormData) {
   go('/admin/shifts', { ok: 'ลบวันหยุดแล้ว' });
 }
 
-// ---------- การตอกเวลา (แก้ไขโดยผู้ดูแล — เก็บประวัติเสมอ) ----------
+// ---------- การบันทึกเวลา (แก้ไขโดยผู้ดูแล — เก็บประวัติเสมอ) ----------
 export async function addManualAttendanceAction(fd: FormData) {
   const admin = await requireAdmin();
   const back = `/admin/attendance?date=${str(fd, 'backDate')}`;
@@ -157,7 +163,8 @@ export async function addManualAttendanceAction(fd: FormData) {
   await prisma.attendance.create({
     data: { employeeId, storeId: emp.storeId, type, timestamp, source: 'MANUAL', note, createdById: admin.id },
   });
-  go(back, { ok: 'เพิ่มรายการตอกเวลาแล้ว' });
+  await recomputeDraftPeriods(toDateStr(timestamp));
+  go(back, { ok: 'เพิ่มรายการบันทึกเวลาแล้ว' });
 }
 
 export async function voidAttendanceAction(fd: FormData) {
@@ -166,7 +173,8 @@ export async function voidAttendanceAction(fd: FormData) {
   const id = int(fd, 'id');
   const note = str(fd, 'voidNote');
   if (!id || !note) go(back, { error: 'กรุณาระบุเหตุผลในการยกเลิก' });
-  await prisma.attendance.update({ where: { id }, data: { voidedAt: new Date(), voidedById: admin.id, voidNote: note } });
+  const rec = await prisma.attendance.update({ where: { id }, data: { voidedAt: new Date(), voidedById: admin.id, voidNote: note } });
+  await recomputeDraftPeriods(toDateStr(rec.timestamp));
   go(back, { ok: 'ยกเลิกรายการแล้ว (ยังเก็บประวัติไว้)' });
 }
 
@@ -207,7 +215,13 @@ export async function createPeriodAction(fd: FormData) {
     throw e;
   }
   await computePeriod(id);
-  go(`/admin/payroll/${id}`, { ok: 'สร้างงวดและคำนวณเงินเดือนแล้ว' });
+  const slips = await prisma.payslip.findMany({ where: { periodId: id }, select: { employeeId: true } });
+  await notify(slips.map((s) => s.employeeId), {
+    title: `กรุณายืนยันวันทำงาน: ${name}`,
+    body: `ตรวจสอบและยืนยันได้ตั้งแต่ ${fmtDate(end)}`,
+    link: `/confirm/${id}`,
+  });
+  go(`/admin/payroll/${id}`, { ok: 'สร้างงวดและคำนวณเงินเดือนแล้ว — แจ้งพนักงานให้ยืนยันวันทำงานแล้ว' });
 }
 
 export async function computePeriodAction(fd: FormData) {
@@ -247,6 +261,10 @@ export async function setPeriodStatusAction(fd: FormData) {
       ...(to === 'DRAFT' ? { approvedAt: null } : {}),
     },
   });
+  if (to === 'APPROVED') {
+    const slips = await prisma.payslip.findMany({ where: { periodId: p.id }, select: { id: true, employeeId: true } });
+    for (const s of slips) await notify([s.employeeId], { title: `สลิปเงินเดือน ${p.name} พร้อมแล้ว`, link: `/payslips/${s.id}` });
+  }
   const label: Record<string, string> = { APPROVED: 'อนุมัติแล้ว พนักงานเห็นสลิปได้', PAID: 'บันทึกว่าจ่ายเงินแล้ว (ล็อกงวด)', DRAFT: 'กลับเป็นร่างแล้ว' };
   go(`/admin/payroll/${p.id}`, { ok: label[to] });
 }
@@ -257,4 +275,82 @@ export async function deletePeriodAction(fd: FormData) {
   if (p.status !== 'DRAFT') go(`/admin/payroll/${p.id}`, { error: 'ลบได้เฉพาะงวดที่เป็นร่าง' });
   await prisma.payrollPeriod.delete({ where: { id: p.id } });
   go('/admin/payroll', { ok: 'ลบงวดแล้ว' });
+}
+
+// ---------- ประกาศ ----------
+export async function saveAnnouncementAction(fd: FormData) {
+  const admin = await requireAdmin();
+  const id = int(fd, 'id');
+  const back = id ? `/admin/announcements/${id}` : '/admin/announcements';
+  const title = str(fd, 'title');
+  const body = str(fd, 'body');
+  const expiresAt = str(fd, 'expiresAt');
+  if (!title || !body) go(back, { error: 'กรุณากรอกหัวข้อและรายละเอียด' });
+  if (title.length > 120) go(back, { error: 'หัวข้อยาวเกิน 120 ตัวอักษร' });
+  if (body.length > 5000) go(back, { error: 'รายละเอียดยาวเกิน 5,000 ตัวอักษร' });
+  if (expiresAt && !isValidDateStr(expiresAt)) go(back, { error: 'วันหมดอายุไม่ถูกต้อง' });
+  const data = {
+    title,
+    body,
+    important: fd.get('important') === 'on',
+    storeId: int(fd, 'storeId'),
+    expiresAt: expiresAt || null,
+  };
+  if (id) {
+    await prisma.announcement.update({ where: { id }, data });
+    go(`/admin/announcements/${id}`, { ok: 'บันทึกการแก้ไขแล้ว' });
+  }
+  await prisma.announcement.create({ data: { ...data, createdById: admin.id } });
+  go('/admin/announcements', { ok: 'ประกาศแล้ว พนักงานจะเห็นแจ้งเตือนเมื่อเปิดแอพ' });
+}
+
+export async function deleteAnnouncementAction(fd: FormData) {
+  await requireAdmin();
+  const id = int(fd, 'id');
+  if (id) await prisma.announcement.delete({ where: { id } });
+  go('/admin/announcements', { ok: 'ลบประกาศแล้ว' });
+}
+
+// ---------- วันลา ----------
+export async function reviewLeaveAction(fd: FormData) {
+  const admin = await requireAdmin();
+  const back = str(fd, 'back') || '/admin/leave';
+  const id = int(fd, 'id');
+  const decision = str(fd, 'decision');
+  const note = optStr(fd, 'note');
+  const r = id ? await prisma.leaveRequest.findUnique({ where: { id }, include: { leaveType: true } }) : null;
+  if (!r) go(back, { error: 'ไม่พบคำขอลา' });
+  const next = decision === 'APPROVE' ? 'APPROVED' : decision === 'REJECT' ? 'REJECTED' : decision === 'CANCEL' ? 'CANCELLED' : null;
+  const allowed = next && ((r.status === 'PENDING' && next !== 'CANCELLED') || (r.status === 'APPROVED' && next === 'CANCELLED'));
+  if (!next || !allowed) go(back, { error: 'คำขอนี้ถูกดำเนินการไปแล้ว' });
+  await prisma.leaveRequest.update({ where: { id: r.id }, data: { status: next, reviewedById: admin.id, reviewedAt: new Date(), reviewNote: note } });
+  const range = r.startDate === r.endDate ? fmtDate(r.startDate) : `${fmtDate(r.startDate)} – ${fmtDate(r.endDate)}`;
+  const verb = next === 'APPROVED' ? 'อนุมัติ' : next === 'REJECTED' ? 'ไม่อนุมัติ' : 'ยกเลิก';
+  await notify([r.employeeId], { title: `${verb}${r.leaveType.name}แล้ว`, body: `${range}${note ? ` — ${note}` : ''}`, link: '/leave' });
+  if (r.status === 'APPROVED' || next === 'APPROVED') await recomputeDraftPeriods(r.startDate, r.endDate);
+  go(back, { ok: `${verb}คำขอลาแล้ว` });
+}
+
+// แยก action ต่อปุ่ม เพื่อไม่ต้องพึ่งค่า name/value ของปุ่มที่กด
+export async function approveLeaveAction(fd: FormData) {
+  fd.set('decision', 'APPROVE');
+  return reviewLeaveAction(fd);
+}
+export async function rejectLeaveAction(fd: FormData) {
+  fd.set('decision', 'REJECT');
+  return reviewLeaveAction(fd);
+}
+
+export async function saveLeaveTypeAction(fd: FormData) {
+  await requireAdmin();
+  const id = int(fd, 'id');
+  const name = str(fd, 'name');
+  const quotaRaw = str(fd, 'annualQuota');
+  const color = /^#[0-9a-fA-F]{6}$/.test(str(fd, 'color')) ? str(fd, 'color') : '#3b82f6';
+  if (!name) go('/admin/leave', { error: 'กรุณากรอกชื่อประเภทการลา' });
+  const annualQuota = quotaRaw === '' ? null : Math.max(0, parseInt(quotaRaw, 10) || 0);
+  const data = { name, paid: fd.get('paid') === 'on', annualQuota, color, active: fd.get('active') === 'on' };
+  if (id) await prisma.leaveType.update({ where: { id }, data });
+  else await prisma.leaveType.create({ data: { ...data, sortOrder: 99 } });
+  go('/admin/leave#types', { ok: `บันทึกประเภท "${name}" แล้ว` });
 }

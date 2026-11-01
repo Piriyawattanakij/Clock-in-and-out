@@ -3,9 +3,9 @@ import type { MetadataRoute } from 'next';
 // ทำให้กด "เพิ่มลงหน้าจอหลัก" บนมือถือ แล้วเปิดเต็มจอเหมือนแอพ
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'KICHI · ตอกเวลา',
+    name: 'KICHI · บันทึกเวลาเข้า-ออก',
     short_name: 'KICHI',
-    description: 'ระบบตอกเวลาเข้า-ออกงาน',
+    description: 'ระบบบันทึกเวลาเข้า-ออกงาน',
     start_url: '/',
     display: 'standalone',
     background_color: '#f9f2e8',

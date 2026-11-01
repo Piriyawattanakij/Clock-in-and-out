@@ -31,10 +31,11 @@ export function EmployeeForm({ emp, stores, shifts }: { emp?: Employee; stores: 
             <option value="ADMIN">ผู้ดูแลระบบ</option>
           </select>
         </label>
-        <label>{emp ? 'รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)' : 'รหัสผ่าน *'}
+        <label>{emp ? 'รีเซ็ตรหัสผ่าน (เว้นว่างถ้าไม่เปลี่ยน)' : 'รหัสผ่านชั่วคราว *'}
           <input name="password" type="password" autoComplete="new-password" required={!emp} minLength={4} />
         </label>
       </div>
+      <p className="muted">รหัสผ่านที่ผู้ดูแลตั้งให้เป็นรหัสชั่วคราว พนักงานจะต้องตั้งรหัสใหม่เองเมื่อเข้าใช้ครั้งแรก</p>
       <label className="check" style={{ marginTop: 12 }}>
         <input type="checkbox" name="active" defaultChecked={emp?.active ?? true} /> เปิดใช้งาน
       </label>

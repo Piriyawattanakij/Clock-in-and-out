@@ -26,7 +26,7 @@ export default async function AttendancePage({
 
   return (
     <main className="container">
-      <h1>การตอกเวลา — {fmtDate(date)}</h1>
+      <h1>บันทึกเวลาเข้า-ออก — {fmtDate(date)}</h1>
       <Flash ok={sp.ok} error={sp.error} />
       <form className="card row" method="get">
         <Link className="btn btn-sm" href={`?date=${addDays(date, -1)}`}>←</Link>
@@ -80,7 +80,7 @@ export default async function AttendancePage({
         </table>
       </div>
 
-      <h2>เพิ่มเวลาด้วยตนเอง (กรณีพนักงานลืมตอก)</h2>
+      <h2>เพิ่มเวลาด้วยตนเอง (กรณีพนักงานลืมบันทึก)</h2>
       <form action={addManualAttendanceAction} className="card">
         <input type="hidden" name="backDate" value={date} />
         <div className="grid">
@@ -94,7 +94,7 @@ export default async function AttendancePage({
             <select name="type"><option value="IN">เข้า</option><option value="OUT">ออก</option></select>
           </label>
           <label>วันเวลา<input type="datetime-local" name="timestamp" defaultValue={toLocalInput(atTime(date, '09:00'))} required /></label>
-          <label>เหตุผล *<input name="note" placeholder="เช่น ลืมตอกออก แจ้งทางไลน์" required /></label>
+          <label>เหตุผล *<input name="note" placeholder="เช่น ลืมบันทึกออก แจ้งทางไลน์" required /></label>
         </div>
         <p className="muted">ทุกรายการที่เพิ่มหรือยกเลิกจะบันทึกชื่อผู้ดูแลและเหตุผลไว้เสมอ</p>
         <button className="btn btn-primary">เพิ่มรายการ</button>

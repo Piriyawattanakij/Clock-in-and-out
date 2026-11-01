@@ -6,6 +6,10 @@ import { buildSessions, nextPunchType } from '@/lib/attendance';
 import { addDays, atTime, fmtDate, fmtMinutes, fmtTime, toDateStr } from '@/lib/time';
 import { BrandLogo } from '@/components/BrandLogo';
 import { Avatar } from '@/components/Avatar';
+import { Icon } from '@/components/Icon';
+import { NotificationBell } from '@/components/NotificationBell';
+import { unreadWhere } from '@/lib/announcements';
+import { myDraftPeriods } from '@/lib/confirm-service';
 import { ClockPanel } from './ClockPanel';
 
 export const dynamic = 'force-dynamic';
@@ -21,14 +25,17 @@ export default async function ClockPage() {
   const user = await requireUser();
   const now = new Date();
   const today = toDateStr(now);
-  const [store, last, todays] = await Promise.all([
+  const [store, last, todays, news, drafts] = await Promise.all([
     user.storeId ? prisma.store.findUnique({ where: { id: user.storeId } }) : null,
     prisma.attendance.findFirst({ where: { employeeId: user.id, voidedAt: null }, orderBy: { timestamp: 'desc' } }),
     prisma.attendance.findMany({
       where: { employeeId: user.id, voidedAt: null, timestamp: { gte: atTime(today, '00:00'), lt: atTime(addDays(today, 1), '00:00') } },
       orderBy: { timestamp: 'asc' },
     }),
+    prisma.announcement.findFirst({ where: unreadWhere(user), orderBy: [{ important: 'desc' }, { createdAt: 'desc' }] }),
+    myDraftPeriods(user.id),
   ]);
+  const toConfirm = drafts.find((d) => d.actionNeeded);
   const next = nextPunchType(last, now);
   const firstIn = todays.find((a) => a.type === 'IN');
   const lastOut = [...todays].reverse().find((a) => a.type === 'OUT');
@@ -38,6 +45,7 @@ export default async function ClockPage() {
     <main className="container narrow">
       <div className="app-bar only-mobile">
         <BrandLogo height={44} />
+        <NotificationBell user={user} />
       </div>
       <section className="hero">
         <div className="row" style={{ alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
@@ -64,6 +72,28 @@ export default async function ClockPage() {
         )}
       </section>
 
+      {toConfirm && (
+        <Link href={`/confirm/${toConfirm.period.id}`} className="list-item news-banner confirm-banner">
+          <span className="news-icon"><Icon name="confirm" size={20} /></span>
+          <div className="grow">
+            <div className="sub">{toConfirm.state === 'NONE' ? 'ถึงเวลายืนยันวันทำงาน' : 'ข้อมูลถูกปรับแล้ว กรุณายืนยันอีกครั้ง'}</div>
+            <b className="news-title">{toConfirm.period.name}</b>
+          </div>
+          <Icon name="chevron" size={18} className="muted" />
+        </Link>
+      )}
+
+      {news && (
+        <Link href={`/announcements/${news.id}`} className="list-item news-banner">
+          <span className="news-icon"><Icon name="megaphone" size={20} /></span>
+          <div className="grow">
+            <div className="sub">{news.important ? 'ประกาศสำคัญ' : 'ประกาศใหม่'}</div>
+            <b className="news-title">{news.title}</b>
+          </div>
+          <Icon name="chevron" size={18} className="muted" />
+        </Link>
+      )}
+
       {store ? (
         <ClockPanel nextType={next} openSince={next === 'OUT' && last ? last.timestamp.toISOString() : null} />
       ) : (
@@ -82,7 +112,7 @@ export default async function ClockPage() {
       </div>
       <div className="card">
         {todays.length === 0 ? (
-          <p className="muted" style={{ margin: 0, textAlign: 'center' }}>ยังไม่มีการตอกเวลาวันนี้</p>
+          <p className="muted" style={{ margin: 0, textAlign: 'center' }}>ยังไม่มีการบันทึกเวลาวันนี้</p>
         ) : (
           <ul className="timeline">
             {todays.map((a) => (

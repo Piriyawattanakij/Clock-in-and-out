@@ -1,6 +1,7 @@
 import 'server-only';
 import { prisma } from './db';
 import { summarizeDays, toShiftDef } from './attendance';
+import { classifyLeaveDays } from './leave';
 import { calcPayslip, type PayType } from './payroll';
 import { getSettings } from './settings';
 import { addDays, atTime, daysInclusive, isFullMonth, toDateStr } from './time';
@@ -10,7 +11,7 @@ export function employedFrom(emp: { startDate: string | null; createdAt: Date })
   return emp.startDate ?? toDateStr(emp.createdAt);
 }
 
-/** ดึงการตอกเวลาที่ยังไม่ถูกยกเลิก ครอบคลุมช่วงวันที่ (เผื่อกะข้ามวัน 1 วัน) */
+/** ดึงการบันทึกเวลาที่ยังไม่ถูกยกเลิก ครอบคลุมช่วงวันที่ (เผื่อกะข้ามวัน 1 วัน) */
 export async function loadPunches(employeeIds: number[], startDate: string, endDate: string) {
   return prisma.attendance.findMany({
     where: {
@@ -30,15 +31,43 @@ export function holidaySetFor(holidays: { date: string; storeId: number | null }
   return new Set(holidays.filter((h) => h.storeId === null || h.storeId === storeId).map((h) => h.date));
 }
 
+/**
+ * วันลาที่อนุมัติแล้ว — โหลดตั้งแต่ต้นปีของ startDate เพื่อให้นับสิทธิ์ลาต่อปีได้ถูกต้อง
+ */
+export async function loadLeaveContext(employeeIds: number[], startDate: string, endDate: string) {
+  const yearStart = `${startDate.slice(0, 4)}-01-01`;
+  const [requests, holidays] = await Promise.all([
+    prisma.leaveRequest.findMany({
+      where: { employeeId: { in: employeeIds }, status: 'APPROVED', endDate: { gte: yearStart }, startDate: { lte: endDate } },
+      include: { leaveType: true },
+    }),
+    loadHolidays(yearStart, endDate),
+  ]);
+  return { requests, holidays };
+}
+
+export function leavesFor(
+  ctx: Awaited<ReturnType<typeof loadLeaveContext>>,
+  emp: { id: number; storeId: number | null; shift: Parameters<typeof toShiftDef>[0] },
+) {
+  return classifyLeaveDays(
+    ctx.requests.filter((r) => r.employeeId === emp.id),
+    toShiftDef(emp.shift),
+    holidaySetFor(ctx.holidays, emp.storeId),
+  );
+}
+
 /** สรุปรายวันของพนักงาน 1 คนในช่วงวันที่ */
 export async function employeeDays(employeeId: number, startDate: string, endDate: string) {
   const emp = await prisma.employee.findUniqueOrThrow({ where: { id: employeeId }, include: { shift: true } });
-  const [punches, holidays, settings] = await Promise.all([
+  const [punches, holidays, settings, leaveCtx] = await Promise.all([
     loadPunches([employeeId], startDate, endDate),
     loadHolidays(startDate, endDate),
     getSettings(),
+    loadLeaveContext([employeeId], startDate, endDate),
   ]);
   return summarizeDays({
+    leaves: leavesFor(leaveCtx, emp),
     punches,
     shift: toShiftDef(emp.shift),
     holidays: holidaySetFor(holidays, emp.storeId),
@@ -62,9 +91,10 @@ export async function computePeriod(periodId: number) {
   });
   // ไม่รวมพนักงานที่เริ่มงานหลังงวดนี้
   const employees = all.filter((e) => employedFrom(e) <= period.endDate);
-  const [punches, holidays] = await Promise.all([
+  const [punches, holidays, leaveCtx] = await Promise.all([
     loadPunches(employees.map((e) => e.id), period.startDate, period.endDate),
     loadHolidays(period.startDate, period.endDate),
+    loadLeaveContext(employees.map((e) => e.id), period.startDate, period.endDate),
   ]);
   const today = toDateStr(new Date());
   const existing = new Map(period.payslips.map((p) => [p.employeeId, p]));
@@ -76,6 +106,7 @@ export async function computePeriod(periodId: number) {
       // เริ่มงานกลางงวด → คิดตั้งแต่วันเริ่มงาน และเงินเดือนคิดตามสัดส่วน
       const start = employedFrom(emp) > period.startDate ? employedFrom(emp) : period.startDate;
       const days = summarizeDays({
+        leaves: leavesFor(leaveCtx, emp),
         punches: punches.filter((p) => p.employeeId === emp.id),
         shift: toShiftDef(emp.shift),
         holidays: holidaySetFor(holidays, emp.storeId),
@@ -109,4 +140,12 @@ export async function computePeriod(periodId: number) {
     }),
   ]);
   await prisma.payrollPeriod.update({ where: { id: periodId }, data: { computedAt: new Date() } });
+}
+
+/** คำนวณงวดที่ยังเป็นร่างซึ่งครอบคลุมช่วงวันที่นี้ใหม่ (หลังแก้เวลา/อนุมัติลา) */
+export async function recomputeDraftPeriods(startDate: string, endDate: string = startDate) {
+  const periods = await prisma.payrollPeriod.findMany({
+    where: { status: 'DRAFT', startDate: { lte: endDate }, endDate: { gte: startDate } },
+  });
+  for (const p of periods) await computePeriod(p.id);
 }

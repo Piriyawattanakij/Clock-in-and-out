@@ -5,6 +5,7 @@ const BADGE: Record<string, string> = {
   PRESENT: 'badge-ok',
   INCOMPLETE: 'badge-warn',
   ABSENT: 'badge-err',
+  LEAVE: 'badge-warn',
   OFF: '',
   PENDING: '',
 };
@@ -20,7 +21,7 @@ function badgeClass(d: DaySummary, today: string) {
 }
 
 /** ตาราง (คอมพิวเตอร์) + การ์ดรายวัน (มือถือ) */
-export function DaysTable({ days }: { days: DaySummary[] }) {
+export function DaysTable({ days, mobileList = true }: { days: DaySummary[]; mobileList?: boolean }) {
   const total = (k: 'regularMinutes' | 'lateMinutes' | 'otMinutes') => days.reduce((a, d) => a + d[k], 0);
   const today = toDateStr(new Date());
   // มือถือ: ล่าสุดอยู่บน และซ่อนวันในอนาคต
@@ -41,7 +42,7 @@ export function DaysTable({ days }: { days: DaySummary[] }) {
               <tr key={d.date}>
                 <td>{fmtDate(d.date)}</td>
                 <td>
-                  <span className={`badge ${badgeClass(d, today)}`}>{statusLabel(d, today)}</span>
+                  <span className={`badge ${badgeClass(d, today)}`}>{d.leave ? d.leave.name : statusLabel(d, today)}</span>
                   {!d.scheduled && d.workedMinutes > 0 && <span className="badge badge-warn" style={{ marginLeft: 4 }}>ทำงานวันหยุด</span>}
                 </td>
                 <td>{fmtTime(d.firstIn)}</td>
@@ -63,7 +64,7 @@ export function DaysTable({ days }: { days: DaySummary[] }) {
         </table>
       </div>
 
-      <div className="list only-mobile">
+      {mobileList && <div className="list only-mobile">
         {mobileDays.length === 0 && <p className="muted" style={{ textAlign: 'center' }}>ยังไม่มีข้อมูลเดือนนี้</p>}
         {mobileDays.map((d) => {
           const off = d.status === 'OFF' || d.status === 'PENDING';
@@ -89,7 +90,7 @@ export function DaysTable({ days }: { days: DaySummary[] }) {
             </div>
           );
         })}
-      </div>
+      </div>}
     </>
   );
 }

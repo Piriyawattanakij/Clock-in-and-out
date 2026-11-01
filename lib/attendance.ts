@@ -1,6 +1,7 @@
 import { addDays, atTime, eachDate, toDateStr, weekday } from './time';
+import type { LeaveDay } from './leave';
 
-/** ถ้าตอกเข้าแล้วไม่ตอกออกเกินเวลานี้ ถือว่าลืมตอกออก และครั้งถัดไปจะเป็นการตอกเข้าใหม่ */
+/** ถ้าบันทึกเข้าแล้วไม่บันทึกออกเกินเวลานี้ ถือว่าลืมบันทึกออก และครั้งถัดไปจะเป็นการบันทึกเข้าใหม่ */
 export const MAX_SESSION_HOURS = 20;
 const MAX_SESSION_MS = MAX_SESSION_HOURS * 3600_000;
 
@@ -24,7 +25,7 @@ export interface Session {
   out: Date | null;
 }
 
-export type DayStatus = 'PRESENT' | 'INCOMPLETE' | 'ABSENT' | 'OFF' | 'PENDING';
+export type DayStatus = 'PRESENT' | 'INCOMPLETE' | 'ABSENT' | 'LEAVE' | 'OFF' | 'PENDING';
 
 export interface DaySummary {
   date: string;
@@ -39,6 +40,8 @@ export interface DaySummary {
   lateMinutes: number;
   otMinutes: number;
   status: DayStatus;
+  /** วันลาที่อนุมัติแล้ว (ถ้ามี) */
+  leave: LeaveDay | null;
 }
 
 export const DEFAULT_SHIFT: ShiftDef = {
@@ -72,7 +75,7 @@ export function buildSessions(punches: Punch[]): Session[] {
   let open: Session | null = null;
   for (const p of sorted) {
     if (p.type === 'IN') {
-      if (open) sessions.push(open); // ตอกเข้าซ้ำโดยไม่ตอกออก = ช่วงก่อนหน้าไม่สมบูรณ์
+      if (open) sessions.push(open); // บันทึกเข้าซ้ำโดยไม่บันทึกออก = ช่วงก่อนหน้าไม่สมบูรณ์
       open = { in: p.timestamp, out: null };
     } else if (open) {
       if (p.timestamp.getTime() - open.in.getTime() <= MAX_SESSION_MS) open.out = p.timestamp;
@@ -101,12 +104,14 @@ export interface SummarizeOptions {
   holidays: Set<string>;
   startDate: string;
   endDate: string;
-  /** วันนี้ (YYYY-MM-DD) — วันก่อนหน้านี้ที่ไม่มีการตอกเวลาจะถือว่าขาดงาน */
+  /** วันนี้ (YYYY-MM-DD) — วันก่อนหน้านี้ที่ไม่มีการบันทึกเวลาจะถือว่าขาดงาน */
   today: string;
   /** ปัด OT ลงเป็นช่วงละกี่นาที (เช่น 30) */
   otBlockMinutes?: number;
   /** วันเริ่มงาน — ก่อนหน้านี้ไม่นับเป็นวันทำงาน/ขาดงาน */
   employedFrom?: string | null;
+  /** วันลาที่อนุมัติแล้ว (จาก classifyLeaveDays) */
+  leaves?: Map<string, LeaveDay>;
 }
 
 /** สรุปการทำงานรายวัน: ชั่วโมงทำงาน, มาสาย, OT, ขาดงาน */
@@ -115,7 +120,7 @@ export function summarizeDays(opts: SummarizeOptions): DaySummary[] {
   const block = opts.otBlockMinutes ?? 30;
   const byDate = new Map<string, Session[]>();
   for (const s of buildSessions(opts.punches)) {
-    const d = toDateStr(s.in); // ช่วงทำงานนับเป็นของวันที่ตอกเข้า
+    const d = toDateStr(s.in); // ช่วงทำงานนับเป็นของวันที่บันทึกเข้า
     const list = byDate.get(d);
     if (list) list.push(s);
     else byDate.set(d, [s]);
@@ -128,11 +133,12 @@ export function summarizeDays(opts: SummarizeOptions): DaySummary[] {
     const list = byDate.get(date) ?? [];
     const { start, end } = shiftBounds(date, shift);
     const standard = Math.max(0, mins(end.getTime() - start.getTime()) - shift.breakMinutes);
-    const empty = { date, scheduled, holiday, firstIn: null, lastOut: null, workedMinutes: 0, regularMinutes: 0, lateMinutes: 0, otMinutes: 0 };
+    const leave = scheduled ? (opts.leaves?.get(date) ?? null) : null;
+    const empty = { date, scheduled, holiday, firstIn: null, lastOut: null, workedMinutes: 0, regularMinutes: 0, lateMinutes: 0, otMinutes: 0, leave };
 
     if (!employed) return { ...empty, status: 'OFF' };
     if (list.length === 0) {
-      const status: DayStatus = !scheduled ? 'OFF' : date < today ? 'ABSENT' : 'PENDING';
+      const status: DayStatus = !scheduled ? 'OFF' : leave ? 'LEAVE' : date < today ? 'ABSENT' : 'PENDING';
       return { ...empty, status };
     }
 
@@ -140,7 +146,7 @@ export function summarizeDays(opts: SummarizeOptions): DaySummary[] {
     const closed = list.filter((s): s is { in: Date; out: Date } => s.out !== null);
     const lastOut = closed.length ? closed[closed.length - 1].out : null;
     let worked = closed.reduce((a, s) => a + mins(s.out.getTime() - s.in.getTime()), 0);
-    // ตอกครั้งเดียวทั้งวัน (ไม่ได้ตอกออกพักเที่ยง) → หักเวลาพักให้อัตโนมัติ
+    // บันทึกครั้งเดียวทั้งวัน (ไม่ได้บันทึกออกพักเที่ยง) → หักเวลาพักให้อัตโนมัติ
     if (closed.length === 1 && worked > 300) worked = Math.max(0, worked - shift.breakMinutes);
 
     let late = 0;
@@ -172,8 +178,9 @@ export function summarizeDays(opts: SummarizeOptions): DaySummary[] {
 
 export const STATUS_LABEL: Record<DayStatus, string> = {
   PRESENT: 'มาทำงาน',
-  INCOMPLETE: 'ไม่ได้ตอกออก',
+  INCOMPLETE: 'ไม่ได้บันทึกออก',
   ABSENT: 'ขาดงาน',
+  LEAVE: 'ลา',
   OFF: 'วันหยุด',
   PENDING: '-',
 };

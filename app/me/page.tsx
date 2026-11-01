@@ -43,6 +43,23 @@ export default async function MePage() {
           </tbody>
         </table>
       </div>
+      <div className="list" style={{ marginBottom: 16 }}>
+        <Link href="/announcements" className="list-item">
+          <span className="menu-icon"><Icon name="megaphone" /></span>
+          <span className="grow"><b>ประกาศจากร้าน</b></span>
+          <Icon name="chevron" className="muted" />
+        </Link>
+        <Link href="/payslips" className="list-item">
+          <span className="menu-icon"><Icon name="receipt" /></span>
+          <span className="grow"><b>สลิปเงินเดือน</b></span>
+          <Icon name="chevron" className="muted" />
+        </Link>
+        <Link href="/me/password" className="list-item">
+          <span className="menu-icon"><Icon name="key" /></span>
+          <span className="grow"><b>เปลี่ยนรหัสผ่าน</b></span>
+          <Icon name="chevron" className="muted" />
+        </Link>
+      </div>
       {user.role === 'ADMIN' && (
         <Link href="/admin/menu" className="list-item" style={{ marginBottom: 16 }}>
           <span className="tile-icon" style={{ display: 'grid', placeItems: 'center', width: 40, height: 40, borderRadius: 12, background: 'var(--primary-soft)', color: 'var(--primary)' }}>

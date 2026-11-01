@@ -6,8 +6,8 @@ import { Nav } from '@/components/Nav';
 const font = Noto_Sans_Thai({ subsets: ['thai', 'latin'], weight: ['400', '500', '600', '700'], variable: '--font-thai', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'KICHI · ตอกเวลา',
-  description: 'ระบบตอกเวลาเข้า-ออกงานและคิดเงินเดือน',
+  title: 'KICHI · บันทึกเวลาเข้า-ออก',
+  description: 'ระบบบันทึกเวลาเข้า-ออกงานและคิดเงินเดือน',
   appleWebApp: { capable: true, title: 'KICHI', statusBarStyle: 'default' },
 };
 

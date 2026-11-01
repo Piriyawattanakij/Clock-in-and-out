@@ -18,6 +18,7 @@ model Store {
   employees   Employee[]
   attendances Attendance[]
   holidays    Holiday[]
+  announcements Announcement[]
   createdAt   DateTime     @default(now())
 }
 
@@ -41,6 +42,8 @@ model Employee {
   position       String?
   role           String       @default("STAFF") // STAFF | ADMIN
   passwordHash   String
+  mustChangePassword Boolean  @default(false) // ผู้ดูแลตั้ง/รีเซ็ตรหัสให้ → ต้องเปลี่ยนเองตอนเข้าใช้ครั้งถัดไป
+  passwordChangedAt  DateTime? // session ที่ออกก่อนเวลานี้จะใช้ไม่ได้ (ออกจากระบบทุกเครื่อง)
   active         Boolean      @default(true)
   photoUpdatedAt DateTime? // มีรูปโปรไฟล์หรือไม่ (ใช้ทำ cache-busting)
   photo          EmployeePhoto?
@@ -60,6 +63,10 @@ model Employee {
   taxId          String?
   attendances    Attendance[] @relation("EmployeeAttendance")
   payslips       Payslip[]
+  announcementReads AnnouncementRead[]
+  leaveRequests     LeaveRequest[]
+  notifications     Notification[]
+  confirmations     PeriodConfirmation[]
   createdAt      DateTime     @default(now())
 }
 
@@ -113,6 +120,7 @@ model PayrollPeriod {
   approvedAt DateTime?
   paidAt     DateTime?
   payslips   Payslip[]
+  confirmations PeriodConfirmation[]
   createdAt  DateTime  @default(now())
 
   @@unique([startDate, endDate])
@@ -129,6 +137,8 @@ model Payslip {
   baseSalary         Int
   workDays           Int
   absentDays         Int
+  leaveDays          Int           @default(0) // ลาแบบได้รับเงิน
+  unpaidLeaveDays    Int           @default(0)
   workMinutes        Int
   lateMinutes        Int
   otMinutes          Int
@@ -160,4 +170,90 @@ model EmployeePhoto {
   data       Bytes
   mimeType   String
   updatedAt  DateTime @updatedAt
+}
+
+/// ประกาศจากผู้ดูแล
+model Announcement {
+  id          Int                @id @default(autoincrement())
+  title       String
+  body        String
+  important   Boolean            @default(false) // ปักหมุดไว้บนสุด
+  storeId     Int? // null = ทุกสาขา
+  store       Store?             @relation(fields: [storeId], references: [id])
+  expiresAt   String? // YYYY-MM-DD (แสดงถึงวันนี้) — null = ไม่หมดอายุ
+  createdById Int
+  reads       AnnouncementRead[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model AnnouncementRead {
+  announcementId Int
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  employeeId     Int
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  readAt         DateTime     @default(now())
+
+  @@id([announcementId, employeeId])
+}
+
+/// ประเภทการลา (ตั้งค่าได้) — paid = ได้รับค่าจ้าง, annualQuota = สิทธิ์ต่อปี (null = ไม่จำกัด)
+model LeaveType {
+  id          Int            @id @default(autoincrement())
+  name        String
+  paid        Boolean        @default(true)
+  annualQuota Int?
+  color       String         @default("#3b82f6")
+  sortOrder   Int            @default(0)
+  active      Boolean        @default(true)
+  requests    LeaveRequest[]
+}
+
+model LeaveRequest {
+  id           Int       @id @default(autoincrement())
+  employeeId   Int
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveTypeId  Int
+  leaveType    LeaveType @relation(fields: [leaveTypeId], references: [id])
+  startDate    String // YYYY-MM-DD
+  endDate      String // YYYY-MM-DD
+  days         Int // จำนวนวันทำงานในช่วงนี้ (ไม่นับวันหยุด)
+  reason       String?
+  status       String    @default("PENDING") // PENDING | APPROVED | REJECTED | CANCELLED
+  reviewedById Int?
+  reviewedAt   DateTime?
+  reviewNote   String?
+  createdAt    DateTime  @default(now())
+
+  @@index([employeeId, startDate])
+  @@index([status])
+}
+
+/// การแจ้งเตือนส่วนตัว (เช่น ผลการขอลา, งวดเงินเดือนพร้อม)
+model Notification {
+  id         Int       @id @default(autoincrement())
+  employeeId Int
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  title      String
+  body       String?
+  link       String?
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([employeeId, readAt])
+}
+
+/// พนักงานยืนยัน/แจ้งแก้ไขวันทำงานของงวดเงินเดือน
+/// snapshot = ตัวเลขในสลิป ณ ตอนยืนยัน ถ้าคำนวณใหม่แล้วตัวเลขเปลี่ยน ต้องยืนยันใหม่
+model PeriodConfirmation {
+  periodId    Int
+  period      PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  employeeId  Int
+  employee    Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  status      String // CONFIRMED | DISPUTED
+  note        String?
+  snapshot    String
+  respondedAt DateTime      @default(now())
+
+  @@id([periodId, employeeId])
 }

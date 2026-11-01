@@ -42,7 +42,10 @@ export async function getCurrentUser() {
     const id = Number(payload.sub);
     if (!Number.isInteger(id)) return null;
     const user = await prisma.employee.findUnique({ where: { id } });
-    return user && user.active ? user : null;
+    if (!user || !user.active) return null;
+    // เปลี่ยน/รีเซ็ตรหัสผ่านแล้ว → session เก่าบนเครื่องอื่นใช้ไม่ได้
+    if (user.passwordChangedAt && (payload.iat ?? 0) * 1000 + 1000 <= user.passwordChangedAt.getTime()) return null;
+    return user;
   } catch {
     return null;
   }
@@ -50,9 +53,10 @@ export async function getCurrentUser() {
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
 
-export async function requireUser(): Promise<CurrentUser> {
+export async function requireUser(opts: { allowPasswordChange?: boolean } = {}): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  if (user.mustChangePassword && !opts.allowPasswordChange) redirect('/me/password');
   return user;
 }
 
