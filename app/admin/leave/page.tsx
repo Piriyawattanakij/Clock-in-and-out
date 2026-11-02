@@ -113,6 +113,7 @@ export default async function AdminLeavePage({ searchParams }: { searchParams: P
           <label style={{ width: 130 }}>สิทธิ์/ปี (วัน)<input name="annualQuota" type="number" min={0} defaultValue={t?.annualQuota ?? ''} placeholder="ไม่จำกัด" /></label>
           <label style={{ width: 70 }}>สี<input name="color" type="color" defaultValue={t?.color ?? '#3b82f6'} style={{ padding: 2, height: 42 }} /></label>
           <label className="check"><input type="checkbox" name="paid" defaultChecked={t?.paid ?? true} /> ได้รับค่าจ้าง</label>
+          <label className="check" title="ไม่ตัดสิทธิ์ ‘ขยันเต็มเดือน’ ถ้าลาไม่เกินที่ตั้งไว้"><input type="checkbox" name="sick" defaultChecked={t?.sick ?? false} /> ลาป่วย</label>
           <label className="check"><input type="checkbox" name="active" defaultChecked={t?.active ?? true} /> ใช้งาน</label>
           <button className="btn">{t ? 'บันทึก' : 'เพิ่ม'}</button>
         </form>

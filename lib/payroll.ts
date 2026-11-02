@@ -78,6 +78,8 @@ export interface PayslipInput {
   baseSalary: number; // สตางค์
   allowance: number; // สตางค์/เดือน
   bonus: number;
+  /** แลกเงินรางวัลสะสม (เงินได้ครั้งคราว ไม่คิดประกันสังคม และคิดภาษีแยกไม่คูณ 12) */
+  rewardPay?: number;
   otherDeduction: number;
   socialSecurity: boolean;
   taxDeduction: number; // สตางค์/ปี
@@ -101,6 +103,7 @@ export interface PayslipResult {
   otPay: number;
   allowance: number;
   bonus: number;
+  rewardPay: number;
   lateDeduction: number;
   absentDeduction: number;
   socialSecurity: number;
@@ -160,15 +163,21 @@ export function calcPayslip(input: PayslipInput, s: PayrollSettings = DEFAULT_PA
   // รายเดือน: หักวันขาดงาน + วันลาไม่รับเงิน
   const absentDeduction = payType === 'MONTHLY' ? r((absentDays + unpaidLeaveDays) * daily) : 0;
 
-  const grossPay = Math.max(0, basePay + holidayPay + otPay + allowance + input.bonus - lateDeduction - absentDeduction);
+  const regularPay = Math.max(0, basePay + holidayPay + otPay + allowance + input.bonus - lateDeduction - absentDeduction);
+  const rewardPay = Math.max(0, input.rewardPay ?? 0);
+  const grossPay = regularPay + rewardPay;
 
-  const ssoWage = Math.min(Math.max(grossPay, s.ssoWageMin * 100 * prorate), s.ssoWageCap * 100 * prorate);
-  const socialSecurity = input.socialSecurity && grossPay > 0 ? r(ssoWage * (s.ssoRatePercent / 100)) : 0;
+  const ssoWage = Math.min(Math.max(regularPay, s.ssoWageMin * 100 * prorate), s.ssoWageCap * 100 * prorate);
+  const socialSecurity = input.socialSecurity && regularPay > 0 ? r(ssoWage * (s.ssoRatePercent / 100)) : 0;
 
   // ภาษีหัก ณ ที่จ่าย: ประมาณรายได้ทั้งปีจากงวดนี้ แล้วเฉลี่ยกลับมาเป็นต่องวด
   const periodsPerYear = input.fullMonth ? 12 : 365 / input.periodDays;
-  const taxYear = annualTax((grossPay / 100) * periodsPerYear, (socialSecurity / 100) * periodsPerYear, input.taxDeduction / 100, s);
-  const withholdingTax = r((taxYear / periodsPerYear) * 100);
+  const annualRegular = (regularPay / 100) * periodsPerYear;
+  const annualSso = (socialSecurity / 100) * periodsPerYear;
+  const taxYear = annualTax(annualRegular, annualSso, input.taxDeduction / 100, s);
+  // เงินได้ครั้งคราว (แลกรางวัล): ภาษีส่วนเพิ่ม = ภาษีทั้งปีเมื่อรวมเงินก้อน − ภาษีทั้งปีเมื่อไม่รวม
+  const rewardTax = rewardPay > 0 ? annualTax(annualRegular + rewardPay / 100, annualSso, input.taxDeduction / 100, s) - taxYear : 0;
+  const withholdingTax = r((taxYear / periodsPerYear + rewardTax) * 100);
 
   const netPay = grossPay - socialSecurity - withholdingTax - input.otherDeduction;
 
@@ -187,6 +196,7 @@ export function calcPayslip(input: PayslipInput, s: PayrollSettings = DEFAULT_PA
     otPay,
     allowance,
     bonus: input.bonus,
+    rewardPay,
     lateDeduction,
     absentDeduction,
     socialSecurity,

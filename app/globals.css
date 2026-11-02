@@ -424,3 +424,122 @@ table.leave-grid { border-collapse: separate; border-spacing: 2px; font-size: 12
 .dispute-note { white-space: normal; color: var(--err); font-size: 13px; }
 
 header.nav a.admin-link { color: var(--text); font-weight: 600; padding: 4px 12px; border-radius: 999px; background: var(--primary-soft); }
+
+/* ---------- badge / รางวัล ---------- */
+@font-face {
+  font-family: 'BadgeKanji';
+  src: url('/fonts/badge-kanji.woff2') format('woff2');
+  font-weight: 800;
+  font-display: block;
+}
+.badge-art { display: block; overflow: visible; }
+
+.coin-stage { position: relative; perspective: 900px; touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; margin: 0 auto; }
+.coin-stage:active { cursor: grabbing; }
+.coin { position: relative; transform-style: preserve-3d; will-change: transform; }
+.coin-edge { position: absolute; inset: 6%; border-radius: 50%; }
+.coin-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 50%; }
+.coin-face .badge-art { width: 100%; height: 100%; filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35)); }
+.coin-shine {
+  position: absolute; inset: 6%; border-radius: 50%; pointer-events: none; mix-blend-mode: soft-light;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.85) 48%, transparent 60%);
+  background-size: 250% 250%;
+}
+.coin-back { display: grid; place-items: center; }
+.coin-back-inner {
+  width: 88%; height: 88%; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  background: radial-gradient(circle at 35% 30%, var(--r1), var(--r2)); color: rgba(40, 25, 5, 0.85);
+  box-shadow: inset 0 0 0 6px rgba(0, 0, 0, 0.12), inset 0 0 30px rgba(0, 0, 0, 0.25); text-align: center; padding: 18%;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.coin-back-kanji { font-family: 'BadgeKanji', serif; font-size: 44px; line-height: 1; opacity: 0.5; }
+.coin-back-inner b { font-size: 16px; }
+.coin-back-inner span { font-size: 12px; }
+.coin-back-inner small { margin-top: 6px; letter-spacing: 0.3em; font-weight: 700; font-size: 10px; opacity: 0.6; }
+
+/* พิธีรับ badge */
+.ceremony {
+  position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; overflow: hidden;
+  background: radial-gradient(circle at 50% 40%, #3a2a14 0%, #140f0a 70%); color: #fff; padding: 24px 16px;
+}
+.ceremony-rays {
+  position: absolute; left: 50%; top: 38%; width: 160vmax; height: 160vmax; transform: translate(-50%, -50%);
+  background: repeating-conic-gradient(from 0deg, rgba(255, 214, 120, 0.16) 0deg 8deg, transparent 8deg 20deg);
+  animation: rays-spin 30s linear infinite; opacity: 0.35; transition: opacity 0.6s;
+  -webkit-mask-image: radial-gradient(circle, #000 10%, transparent 60%); mask-image: radial-gradient(circle, #000 10%, transparent 60%);
+}
+.ceremony.revealed .ceremony-rays { opacity: 1; animation-duration: 14s; }
+@keyframes rays-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.ceremony-flash { position: absolute; inset: 0; background: radial-gradient(circle at 50% 38%, #fff, rgba(255, 230, 160, 0.6) 30%, transparent 60%); animation: flash 0.9s ease-out forwards; pointer-events: none; }
+@keyframes flash { from { opacity: 1; } to { opacity: 0; } }
+.ceremony-body { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 18px; width: 100%; max-width: 380px; }
+.ceremony-count { font-size: 13px; padding: 4px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); }
+.sealed-badge { position: relative; border: none; background: none; padding: 0; cursor: pointer; animation: sealed-bob 1.6s ease-in-out infinite; }
+.sealed-badge .badge-art { filter: brightness(0.15) sepia(1) saturate(2) drop-shadow(0 0 24px rgba(255, 200, 90, 0.6)); }
+.sealed-tag { position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); white-space: nowrap; background: #c9962f; color: #1c1408; font-weight: 700; padding: 6px 16px; border-radius: 999px; font-size: 14px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4); }
+@keyframes sealed-bob { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-10px) rotate(3deg); } }
+.ceremony.revealed .coin-stage { animation: coin-pop 0.7s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes coin-pop { from { transform: scale(0.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.ceremony-text { text-align: center; width: 100%; }
+.ceremony-text h2 { font-size: 26px; margin: 4px 0 6px; }
+.ceremony-text p { margin: 0 0 8px; color: rgba(255, 255, 255, 0.8); }
+.ceremony.revealed .ceremony-text { animation: rise 0.6s 0.25s ease-out both; }
+@keyframes rise { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+.ceremony-kicker { font-size: 14px; color: #f3d48a; letter-spacing: 0.02em; }
+.ceremony-reward { display: inline-block; margin: 6px 0 4px; padding: 8px 18px; border-radius: 999px; font-weight: 700; font-size: 18px; color: #1c1408; background: linear-gradient(135deg, #ffe7a3, #c9962f); box-shadow: 0 6px 20px rgba(201, 150, 47, 0.45); }
+.ceremony-hint { font-size: 12px !important; color: rgba(255, 255, 255, 0.55) !important; }
+.ceremony-btn { margin-top: 8px; background: #fff; color: #1c1408; border-color: #fff; font-weight: 700; }
+.petals { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.petals i {
+  position: absolute; top: -20px; border-radius: 80% 0 80% 0; background: linear-gradient(135deg, #ffd1dc, #f28cab);
+  animation-name: petal-fall; animation-timing-function: linear; animation-iteration-count: infinite; opacity: 0.9;
+}
+@keyframes petal-fall {
+  0% { transform: translate3d(0, -20px, 0) rotate(0deg); }
+  100% { transform: translate3d(var(--drift), 105vh, 0) rotate(var(--spin)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ceremony-rays, .sealed-badge, .petals i { animation: none !important; }
+  .petals { display: none; }
+}
+
+/* กระปุก + สมุดสะสม */
+.wallet-hero { position: relative; overflow: hidden; border-radius: 24px; padding: 20px; margin-bottom: 18px; color: #fff; background: linear-gradient(135deg, var(--hero-1), var(--hero-2)); box-shadow: 0 12px 32px rgba(40, 28, 14, 0.25); }
+.wallet-hero::after { content: ''; position: absolute; right: -50px; bottom: -70px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(201, 150, 47, 0.5), transparent 70%); }
+.wallet-hero .muted { color: rgba(255, 255, 255, 0.75); }
+.wallet-amount { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.1; margin: 4px 0; }
+.wallet-row { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: rgba(255, 255, 255, 0.8); position: relative; z-index: 1; }
+.wallet-hero form { position: relative; z-index: 1; margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+.wallet-hero input { flex: 1 1 120px; background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.25); color: #fff; }
+.wallet-hero .btn-redeem { background: linear-gradient(135deg, #ffe7a3, #c9962f); color: #1c1408; border: none; font-weight: 700; }
+.badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-bottom: 8px; }
+.badge-tile { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px 10px; border-radius: 18px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; cursor: pointer; box-shadow: var(--shadow); text-align: center; transition: transform 0.15s; }
+.badge-tile:active { transform: scale(0.96); }
+.badge-tile b { font-size: 13px; line-height: 1.3; }
+.badge-tile small { font-size: 11px; color: var(--muted); }
+.badge-tile-art { position: relative; }
+.badge-tile.locked .badge-art { filter: grayscale(1) opacity(0.35); }
+.badge-tile .lock { position: absolute; right: 2px; bottom: 2px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--card); border: 1px solid var(--border); color: var(--muted); }
+.badge-count { position: absolute; right: -4px; top: -2px; background: var(--err); color: #fff; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; border: 2px solid var(--card); }
+.mini-bar { display: block; width: 70%; height: 5px; border-radius: 99px; background: var(--card-2); overflow: hidden; margin-top: 3px; }
+.mini-bar span { display: block; height: 100%; background: var(--primary-2); border-radius: 99px; }
+.badge-viewer {
+  position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 24px 16px;
+  background: radial-gradient(circle at 50% 35%, #2a2117 0%, #0d0a07 75%); color: #fff; animation: fade-in 0.2s ease-out;
+}
+@keyframes fade-in { from { opacity: 0; } }
+.viewer-close { position: absolute; top: calc(14px + env(safe-area-inset-top)); right: 14px; width: 42px; height: 42px; border-radius: 50%; border: none; background: rgba(255, 255, 255, 0.12); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.viewer-info { text-align: center; max-width: 360px; }
+.viewer-info h2 { font-size: 24px; margin: 4px 0 6px; }
+.viewer-info p { margin: 0 0 12px; color: rgba(255, 255, 255, 0.8); }
+.viewer-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+.viewer-stats div { background: rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; }
+.viewer-stats span { font-size: 11px; color: rgba(255, 255, 255, 0.6); }
+.viewer-progress { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 13px; margin-bottom: 8px; }
+.viewer-progress .mini-bar { width: 200px; background: rgba(255, 255, 255, 0.15); }
+.coin-locked .coin-face .badge-art { filter: grayscale(1) brightness(0.6); }
+.reward-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 13px; color: #1c1408; font-weight: 600; background: linear-gradient(135deg, #ffe7a3, #c9962f); text-decoration: none; }
+.reward-chip:hover { text-decoration: none; }
+.new-badge-banner { background: linear-gradient(135deg, #2a2117, #4a3820); color: #fff; border: none; }
+.new-badge-banner .sub { color: #f3d48a; }
+.new-badge-banner .badge-art { animation: sealed-bob 1.6s ease-in-out infinite; }

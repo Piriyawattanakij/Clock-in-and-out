@@ -11,6 +11,7 @@ export function PayslipView({ slip }: { slip: Payslip & { employee: Employee; pe
     ['ค่าล่วงเวลา (OT)', slip.otPay],
     ['เบี้ยเลี้ยง', slip.allowance],
     ['โบนัส / อื่น ๆ', slip.bonus],
+    ...(slip.rewardPay ? [['เงินรางวัลสะสม (กระปุก KICHI)', slip.rewardPay] as [string, number]] : []),
   ];
   const deduct: [string, number][] = [
     ['หักมาสาย', slip.lateDeduction],

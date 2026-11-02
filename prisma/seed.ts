@@ -44,12 +44,17 @@ async function main() {
   if ((await prisma.leaveType.count()) === 0) {
     await prisma.leaveType.createMany({
       data: [
-        { name: 'ลาป่วย', paid: true, annualQuota: 30, color: '#8b5cf6', sortOrder: 1 },
+        { name: 'ลาป่วย', paid: true, annualQuota: 30, color: '#8b5cf6', sortOrder: 1, sick: true },
         { name: 'ลากิจ', paid: true, annualQuota: 3, color: '#c9962f', sortOrder: 2 },
         { name: 'ลาพักร้อน', paid: true, annualQuota: 6, color: '#3b82f6', sortOrder: 3 },
         { name: 'ลาไม่รับเงิน', paid: false, annualQuota: null, color: '#8b8378', sortOrder: 4 },
       ],
     });
+  }
+
+  // ฐานข้อมูลเดิม: ตั้งให้ “ลาป่วย” เป็นประเภทลาป่วย (ใช้กับ achievement ขยันเต็มเดือน)
+  if ((await prisma.leaveType.count({ where: { sick: true } })) === 0) {
+    await prisma.leaveType.updateMany({ where: { name: 'ลาป่วย' }, data: { sick: true } });
   }
 
   console.log('Seed เรียบร้อย — admin / admin1234, E001 / 1234, E002 / 1234');

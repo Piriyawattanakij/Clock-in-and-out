@@ -1,5 +1,5 @@
 import {
-  Bell, CalendarCheck, CalendarDays, CalendarHeart, ChevronRight, KeyRound, Megaphone, Clock, Fingerprint, History, House, LayoutGrid, ListChecks, Receipt, Settings, Store, UserRound, Users, Wallet,
+  Award, Bell, CalendarCheck, CalendarDays, CalendarHeart, ChevronRight, KeyRound, Megaphone, Clock, Fingerprint, History, House, LayoutGrid, ListChecks, Receipt, Settings, Store, UserRound, Users, Wallet,
   type LucideProps,
 } from 'lucide-react';
 
@@ -19,6 +19,7 @@ const ICONS = {
   fingerprint: Fingerprint,
   chevron: ChevronRight,
   bell: Bell,
+  reward: Award,
   leave: CalendarHeart,
   confirm: CalendarCheck,
   megaphone: Megaphone,

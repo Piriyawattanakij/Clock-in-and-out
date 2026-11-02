@@ -6,12 +6,18 @@ export interface AppSettings extends PayrollSettings {
   maxAccuracyM: number;
   /** ปัด OT ลงเป็นช่วงละกี่นาที */
   otBlockMinutes: number;
+  /** แลกเงินรางวัลขั้นต่ำ (บาท) */
+  rewardMinRedeem: number;
+  /** ลาป่วยได้กี่วันต่อเดือน โดยไม่ตัดสิทธิ์ “ขยันเต็มเดือน” */
+  sickGraceDays: number;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   ...DEFAULT_PAYROLL_SETTINGS,
   maxAccuracyM: 100,
   otBlockMinutes: 30,
+  rewardMinRedeem: 500,
+  sickGraceDays: 2,
 };
 
 const KEY = 'app';

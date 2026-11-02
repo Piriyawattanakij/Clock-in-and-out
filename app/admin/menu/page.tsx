@@ -5,7 +5,8 @@ import { Icon } from '@/components/Icon';
 
 export default async function AdminMenuPage() {
   const pendingLeave = await prisma.leaveRequest.count({ where: { status: 'PENDING' } });
-  const badges: Record<string, number> = { '/admin/leave': pendingLeave };
+  const pendingRedeem = await prisma.rewardRedemption.count({ where: { status: 'PENDING' } });
+  const badges: Record<string, number> = { '/admin/leave': pendingLeave, '/admin/rewards': pendingRedeem };
   return (
     <main className="container narrow">
       <h1>จัดการร้าน</h1>

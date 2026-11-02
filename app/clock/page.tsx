@@ -10,6 +10,10 @@ import { Icon } from '@/components/Icon';
 import { NotificationBell } from '@/components/NotificationBell';
 import { unreadWhere } from '@/lib/announcements';
 import { myDraftPeriods } from '@/lib/confirm-service';
+import { walletOf } from '@/lib/reward-service';
+import { ACHIEVEMENT_BY_KEY } from '@/lib/achievement-defs';
+import { BadgeArt } from '@/components/badges/BadgeArt';
+import { fmtBaht } from '@/lib/money';
 import { ClockPanel } from './ClockPanel';
 
 export const dynamic = 'force-dynamic';
@@ -25,7 +29,7 @@ export default async function ClockPage() {
   const user = await requireUser();
   const now = new Date();
   const today = toDateStr(now);
-  const [store, last, todays, news, drafts] = await Promise.all([
+  const [store, last, todays, news, drafts, wallet, unclaimed, badgeCount] = await Promise.all([
     user.storeId ? prisma.store.findUnique({ where: { id: user.storeId } }) : null,
     prisma.attendance.findFirst({ where: { employeeId: user.id, voidedAt: null }, orderBy: { timestamp: 'desc' } }),
     prisma.attendance.findMany({
@@ -34,7 +38,11 @@ export default async function ClockPage() {
     }),
     prisma.announcement.findFirst({ where: unreadWhere(user), orderBy: [{ important: 'desc' }, { createdAt: 'desc' }] }),
     myDraftPeriods(user.id),
+    walletOf(user.id),
+    prisma.employeeAchievement.findMany({ where: { employeeId: user.id, revokedAt: null, claimedAt: null }, orderBy: { awardedAt: 'desc' } }),
+    prisma.employeeAchievement.count({ where: { employeeId: user.id, revokedAt: null } }),
   ]);
+  const newDef = unclaimed[0] ? ACHIEVEMENT_BY_KEY.get(unclaimed[0].achievementKey) : undefined;
   const toConfirm = drafts.find((d) => d.actionNeeded);
   const next = nextPunchType(last, now);
   const firstIn = todays.find((a) => a.type === 'IN');
@@ -68,9 +76,21 @@ export default async function ClockPage() {
         {store && (
           <div style={{ marginTop: 14, position: 'relative', zIndex: 1 }}>
             <span className="chip"><MapPin size={14} /> {store.name} · รัศมี {store.radiusM} ม.</span>
+            <Link href="/rewards" className="reward-chip" style={{ marginLeft: 6 }}>🐷 ฿{fmtBaht(wallet.balance)} · {badgeCount} badge</Link>
           </div>
         )}
       </section>
+
+      {newDef && (
+        <Link href="/rewards" className="list-item news-banner new-badge-banner">
+          <BadgeArt def={newDef} size={44} idSuffix="-banner" />
+          <div className="grow">
+            <div className="sub">🎉 {unclaimed.length > 1 ? `ได้รับ badge ใหม่ ${unclaimed.length} อัน` : 'ได้รับ badge ใหม่'} — แตะเพื่อรับ</div>
+            <b className="news-title">{newDef.name}{unclaimed[0].amount > 0 ? ` · +฿${fmtBaht(unclaimed[0].amount)}` : ''}</b>
+          </div>
+          <Icon name="chevron" size={18} />
+        </Link>
+      )}
 
       {toConfirm && (
         <Link href={`/confirm/${toConfirm.period.id}`} className="list-item news-banner confirm-banner">
