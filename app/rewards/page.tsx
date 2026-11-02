@@ -61,6 +61,7 @@ export default async function RewardsPage() {
       firstAt: mine[0]?.awardedAt.toISOString() ?? null,
       lastAt: mine.at(-1)?.awardedAt.toISOString() ?? null,
       totalAmount: mine.reduce((s, w) => s + w.amount, 0),
+      lastAmount: mine.at(-1)?.amount ?? 0,
       amount: conf.get(a.key)!.amount,
       progress: progressOf(a.key),
     };
@@ -69,19 +70,21 @@ export default async function RewardsPage() {
     .filter((w) => !w.claimedAt)
     .map((w) => {
       const a = ACHIEVEMENTS.find((x) => x.key === w.achievementKey)!;
+      const count = awards.filter((x) => x.achievementKey === w.achievementKey && x.awardedAt <= w.awardedAt).length;
       return {
         id: w.id,
         def: { key: a.key, kanji: a.kanji, motif: a.motif, colors: a.colors, tier: a.tier, group: a.group, name: a.name, description: a.description, kanjiMeaning: a.kanjiMeaning },
         amount: w.amount,
         note: w.note,
         awardedAt: w.awardedAt.toISOString(),
+        count,
       };
     });
   const earnedCount = items.filter((i) => i.count > 0).length;
 
   return (
     <main className="container narrow">
-      {unclaimed.length > 0 && <ClaimCeremony items={unclaimed} />}
+      {unclaimed.length > 0 && <ClaimCeremony items={unclaimed} employeeName={user.name} />}
       <h1>รางวัลของฉัน</h1>
       <section className="wallet-hero">
         <div className="muted" style={{ position: 'relative', zIndex: 1 }}>🐷 กระปุก KICHI</div>
@@ -95,7 +98,7 @@ export default async function RewardsPage() {
         <RedeemForm balance={wallet.balance} min={settings.rewardMinRedeem * 100} />
       </section>
 
-      <BadgeCollection items={items} />
+      <BadgeCollection items={items} employeeName={user.name} />
 
       {redemptions.length > 0 && (
         <>

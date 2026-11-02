@@ -5,6 +5,7 @@ import { Lock, X } from 'lucide-react';
 import { GROUP_LABEL, TIER_INFO, type AchievementGroup } from '@/lib/achievement-defs';
 import { BadgeArt, type BadgeVisual } from './BadgeArt';
 import { BadgeCoin } from './BadgeCoin';
+import { ShareBadge } from './ShareBadge';
 
 export interface CollectionItem {
   def: BadgeVisual & { description: string; kanjiMeaning: string; repeatable: boolean };
@@ -13,6 +14,7 @@ export interface CollectionItem {
   firstAt: string | null;
   lastAt: string | null;
   totalAmount: number; // สตางค์ที่ได้จาก badge นี้
+  lastAmount: number; // เงินรางวัลครั้งล่าสุด (ใช้ในรูปแชร์)
   amount: number; // รางวัลปัจจุบันต่อครั้ง
   progress?: { current: number; target: number } | null;
 }
@@ -20,7 +22,7 @@ export interface CollectionItem {
 const baht = (s: number) => (s / 100).toLocaleString('th-TH');
 const date = (iso: string) => new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
 
-export function BadgeCollection({ items }: { items: CollectionItem[] }) {
+export function BadgeCollection({ items, employeeName }: { items: CollectionItem[]; employeeName: string }) {
   const [open, setOpen] = useState<CollectionItem | null>(null);
   const groups = (Object.keys(GROUP_LABEL) as AchievementGroup[]).filter((g) => items.some((i) => i.def.group === g));
 
@@ -99,6 +101,24 @@ export function BadgeCollection({ items }: { items: CollectionItem[] }) {
               </div>
             )}
             <p className="ceremony-hint">ปัดที่เหรียญเพื่อหมุนดู{open.def.repeatable ? ' · ได้ซ้ำทุกเดือน' : ''}</p>
+            {open.count > 0 && (
+              <ShareBadge
+                key={open.def.key}
+                def={open.def}
+                className="btn btn-block ceremony-share"
+                info={{
+                  badgeName: open.def.name,
+                  kanji: open.def.kanji,
+                  kanjiMeaning: open.def.kanjiMeaning,
+                  tier: open.def.tier,
+                  description: open.def.description,
+                  employeeName,
+                  awardedAt: open.lastAt,
+                  count: open.count,
+                  amount: open.lastAmount,
+                }}
+              />
+            )}
           </div>
         </div>
       )}
