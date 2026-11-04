@@ -15,11 +15,14 @@ export function BadgeCoin({
   def,
   size = 240,
   spinIn = true,
+  grand = false,
   back,
 }: {
   def: BadgeVisual;
   size?: number;
   spinIn?: boolean;
+  /** หมุนเข้ามาแบบยาว (ใช้ตอนเปิดรับ badge) */
+  grand?: boolean;
   /** ข้อความด้านหลังเหรียญ */
   back?: { title: string; lines: string[] };
 }) {
@@ -29,8 +32,11 @@ export function BadgeCoin({
 
   useEffect(() => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let angle = spinIn && !reduce ? -720 : 0;
-    let vel = spinIn && !reduce ? 26 : 0;
+    // grand: หมุน ~5 รอบ แล้วค่อย ๆ ช้าลงจนหยุด (~4 วินาที)
+    let angle = spinIn && !reduce ? (grand ? -1800 : -720) : 0;
+    let vel = spinIn && !reduce ? (grand ? 34 : 26) : 0;
+    const friction = grand ? 0.988 : 0.965;
+    let userFriction = false; // หลังผู้ใช้ปัดเอง ใช้แรงเสียดทานปกติ
     let tilt = 0;
     let tiltVel = 0;
     let dragging = false;
@@ -47,7 +53,7 @@ export function BadgeCoin({
       if (!dragging) {
         // แรงเฉื่อย แล้วสปริงกลับมาหันหน้า (มุมที่เป็นทวีคูณของ 360)
         const target = Math.round(angle / 360) * 360;
-        if (Math.abs(vel) > 2.5) vel *= 0.965;
+        if (Math.abs(vel) > 2.5) vel *= userFriction ? 0.965 : friction;
         else vel += (target - angle) * 0.035;
         vel *= 0.9;
         angle += vel;
@@ -87,6 +93,7 @@ export function BadgeCoin({
     };
     const up = () => {
       dragging = false;
+      userFriction = true;
       vel = Math.max(-45, Math.min(45, vel));
     };
     stage.addEventListener('pointerdown', down);
@@ -100,7 +107,7 @@ export function BadgeCoin({
       stage.removeEventListener('pointerup', up);
       stage.removeEventListener('pointercancel', up);
     };
-  }, [spinIn]);
+  }, [spinIn, grand]);
 
   const half = (EDGE_LAYERS * EDGE_GAP) / 2;
   return (
