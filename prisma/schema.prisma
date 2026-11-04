@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -303,4 +303,12 @@ model RewardRedemption {
   createdAt       DateTime  @default(now())
 
   @@index([employeeId, status])
+}
+
+/// นับการเข้าสู่ระบบผิด เพื่อล็อกชั่วคราวเมื่อเดารหัสผ่านซ้ำ ๆ (key = "code:…" หรือ "ip:…")
+model LoginThrottle {
+  key         String    @id
+  failures    Int       @default(0)
+  windowStart DateTime  @default(now())
+  lockedUntil DateTime?
 }
