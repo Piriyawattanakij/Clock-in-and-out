@@ -54,7 +54,7 @@ export function PayslipView({ slip }: { slip: Payslip & { employee: Employee; pe
               <tr key={k}><td>{k}</td><td className="num">{fmtBaht(v)}</td></tr>
             ))}
             {deduct.slice(0, 2).map(([k, v]) => (
-              <tr key={k}><td>{k}</td><td className="num">−{fmtBaht(v)}</td></tr>
+              <tr key={k}><td>{k}</td><td className="num">{v > 0 ? `−${fmtBaht(v)}` : fmtBaht(0)}</td></tr>
             ))}
           </tbody>
           <tfoot><tr><th>รวมรายได้</th><th className="num">{fmtBaht(slip.grossPay)}</th></tr></tfoot>
