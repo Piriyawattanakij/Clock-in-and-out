@@ -26,5 +26,5 @@ export function unreadCount(user: Viewer) {
 
 /** พนักงานที่เป็นกลุ่มเป้าหมายของประกาศ (ใช้นับยอดอ่าน) */
 export function audienceWhere(a: { storeId: number | null; createdById: number }): Prisma.EmployeeWhereInput {
-  return { active: true, id: { not: a.createdById }, ...(a.storeId ? { storeId: a.storeId } : {}) };
+  return { active: true, workMode: { not: 'NONE' }, id: { not: a.createdById }, ...(a.storeId ? { storeId: a.storeId } : {}) };
 }

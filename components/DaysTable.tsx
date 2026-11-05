@@ -6,6 +6,7 @@ const BADGE: Record<string, string> = {
   INCOMPLETE: 'badge-warn',
   ABSENT: 'badge-err',
   LEAVE: 'badge-warn',
+  EXEMPT: 'badge-ok',
   OFF: '',
   PENDING: '',
 };

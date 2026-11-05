@@ -17,7 +17,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
   const { start, end } = monthRange(month);
   const days = await employeeDays(user.id, start, end);
   const sum = (f: (d: (typeof days)[number]) => number) => days.reduce((a, d) => a + f(d), 0);
-  const workDays = days.filter((d) => d.status === 'PRESENT' || d.status === 'INCOMPLETE').length;
+  const workDays = days.filter((d) => d.status === 'PRESENT' || d.status === 'INCOMPLETE' || d.status === 'EXEMPT').length;
   const leave = days.filter((d) => d.status === 'LEAVE').length;
   const absent = days.filter((d) => d.status === 'ABSENT').length;
   const late = sum((d) => d.lateMinutes);

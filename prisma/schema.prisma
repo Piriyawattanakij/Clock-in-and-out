@@ -41,6 +41,8 @@ model Employee {
   phone          String?
   position       String?
   role           String       @default("STAFF") // STAFF | ADMIN
+  /// CLOCK = บันทึกเวลาทุกวัน (Staff) · EXEMPT = ผู้บริหาร ไม่ต้องบันทึกเวลา คิดเงินเดือนเต็ม · NONE = บัญชีระบบ ไม่แสดงในตาราง
+  workMode       String       @default("CLOCK")
   passwordHash   String
   mustChangePassword Boolean  @default(false) // ผู้ดูแลตั้ง/รีเซ็ตรหัสให้ → ต้องเปลี่ยนเองตอนเข้าใช้ครั้งถัดไป
   passwordChangedAt  DateTime? // session ที่ออกก่อนเวลานี้จะใช้ไม่ได้ (ออกจากระบบทุกเครื่อง)

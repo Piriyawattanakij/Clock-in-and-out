@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db';
+import { teamWhere } from '@/lib/payroll-service';
 import {
   approveRedemptionAction, evaluateAchievementsAction, manualAwardAction, rejectRedemptionAction, revokeAwardAction, saveAchievementSettingsAction,
 } from '@/app/admin/actions';
@@ -17,7 +18,7 @@ export default async function AdminRewardsPage({ searchParams }: { searchParams:
   const sp = await searchParams;
   const [conf, employees, pending, recent] = await Promise.all([
     achievementSettings(),
-    prisma.employee.findMany({ where: { active: true, OR: [{ role: 'STAFF' }, { baseSalary: { gt: 0 } }] }, orderBy: { code: 'asc' } }),
+    prisma.employee.findMany({ where: teamWhere, orderBy: { code: 'asc' } }),
     prisma.rewardRedemption.findMany({ where: { status: 'PENDING' }, include: { employee: true }, orderBy: { createdAt: 'asc' } }),
     prisma.employeeAchievement.findMany({ include: { employee: true }, orderBy: { awardedAt: 'desc' }, take: 25 }),
   ]);

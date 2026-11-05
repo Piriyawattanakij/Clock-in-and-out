@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { createSession, requireAdmin } from '@/lib/auth';
+import { asWorkMode } from '@/lib/attendance';
 import { parseBaht } from '@/lib/money';
 import { computePeriod, recomputeDraftPeriods } from '@/lib/payroll-service';
 import { notify } from '@/lib/notifications';
@@ -42,6 +43,7 @@ export async function saveEmployeeAction(fd: FormData) {
   const password = str(fd, 'password');
   const payType = str(fd, 'payType');
   const role = str(fd, 'role') === 'ADMIN' ? 'ADMIN' : 'STAFF';
+  const workMode = asWorkMode(str(fd, 'workMode'));
   const active = fd.get('active') === 'on';
 
   if (!code || !name) go(back, { error: 'กรุณากรอกรหัสและชื่อพนักงาน' });
@@ -65,6 +67,7 @@ export async function saveEmployeeAction(fd: FormData) {
     phone: optStr(fd, 'phone'),
     position: optStr(fd, 'position'),
     role,
+    workMode,
     active,
     startDate: startDate || null,
     storeId: int(fd, 'storeId'),

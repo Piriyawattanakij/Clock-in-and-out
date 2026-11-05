@@ -2,10 +2,12 @@ import Link from 'next/link';
 import { Camera, LogIn, LogOut, MapPin, Timer } from 'lucide-react';
 import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/auth';
-import { buildSessions, nextPunchType } from '@/lib/attendance';
-import { addDays, atTime, fmtDate, fmtMinutes, fmtTime, toDateStr } from '@/lib/time';
+import { buildSessions, nextPunchType, toShiftDef } from '@/lib/attendance';
+import { holidaySetFor, loadHolidays } from '@/lib/payroll-service';
+import { RestDay } from '@/components/RestDay';
+import { PhotoPreview } from '@/components/PhotoPreview';
+import { addDays, atTime, fmtDate, fmtMinutes, fmtTime, toDateStr, weekday } from '@/lib/time';
 import { BrandLogo } from '@/components/BrandLogo';
-import { Avatar } from '@/components/Avatar';
 import { Icon } from '@/components/Icon';
 import { NotificationBell } from '@/components/NotificationBell';
 import { unreadWhere } from '@/lib/announcements';
@@ -29,7 +31,7 @@ export default async function ClockPage() {
   const user = await requireUser();
   const now = new Date();
   const today = toDateStr(now);
-  const [store, last, todays, news, drafts, wallet, unclaimed, badgeCount] = await Promise.all([
+  const [store, last, todays, news, drafts, wallet, unclaimed, badgeCount, shift, holidaysToday, leaveToday] = await Promise.all([
     user.storeId ? prisma.store.findUnique({ where: { id: user.storeId } }) : null,
     prisma.attendance.findFirst({ where: { employeeId: user.id, voidedAt: null }, orderBy: { timestamp: 'desc' } }),
     prisma.attendance.findMany({
@@ -41,7 +43,22 @@ export default async function ClockPage() {
     walletOf(user.id),
     prisma.employeeAchievement.findMany({ where: { employeeId: user.id, revokedAt: null, claimedAt: null }, orderBy: { awardedAt: 'desc' } }),
     prisma.employeeAchievement.count({ where: { employeeId: user.id, revokedAt: null } }),
+    user.shiftId ? prisma.shift.findUnique({ where: { id: user.shiftId } }) : null,
+    loadHolidays(today, today),
+    prisma.leaveRequest.findFirst({ where: { employeeId: user.id, status: 'APPROVED', startDate: { lte: today }, endDate: { gte: today } }, include: { leaveType: true } }),
   ]);
+  // วันนี้เป็นวันหยุดของเราไหม: วันหยุดนักขัตฤกษ์ / วันหยุดประจำสัปดาห์ / วันลาที่อนุมัติแล้ว
+  const holiday = holidaysToday.find((h) => holidaySetFor([h], user.storeId).has(today));
+  const weeklyOff = !toShiftDef(shift).workDays.includes(weekday(today));
+  const firstName = user.name.trim().split(/\s+/)[0];
+  const rest = holiday
+    ? { title: 'วันนี้วันหยุด', subtitle: `พักผ่อนให้เต็มที่นะ ${firstName} 🍵`, note: holiday.name }
+    : leaveToday
+      ? { title: 'วันนี้วันลาของคุณ', subtitle: `พักผ่อนให้เต็มที่นะ ${firstName} 🍵`, note: leaveToday.leaveType.name }
+      : weeklyOff
+        ? { title: 'วันนี้วันหยุด', subtitle: `พักผ่อนให้เต็มที่นะ ${firstName} 🍵`, note: 'วันหยุดประจำสัปดาห์' }
+        : null;
+  const exempt = user.workMode === 'EXEMPT';
   const newDef = unclaimed[0] ? ACHIEVEMENT_BY_KEY.get(unclaimed[0].achievementKey) : undefined;
   const toConfirm = drafts.find((d) => d.actionNeeded);
   const next = nextPunchType(last, now);
@@ -62,16 +79,16 @@ export default async function ClockPage() {
             <h1>{user.name}</h1>
             <div className="muted" style={{ marginTop: 2 }}>{fmtDate(now)}</div>
           </div>
-          <Link href="/me" className="hero-photo" aria-label="บัญชีของฉัน / เปลี่ยนรูป">
-            {user.photoUpdatedAt ? (
-              <Avatar emp={user} size={84} className="ring-gold" />
-            ) : (
-              <>
-                <span className="add-photo" style={{ width: 76, height: 76 }}><Camera size={26} /></span>
-                <small>เพิ่มรูป</small>
-              </>
-            )}
-          </Link>
+          {user.photoUpdatedAt ? (
+            <span className="hero-photo">
+              <PhotoPreview emp={user} size={84} className="ring-gold" caption={user.position ?? undefined} action={{ href: '/me', label: 'เปลี่ยนรูป' }} />
+            </span>
+          ) : (
+            <Link href="/me" className="hero-photo" aria-label="เพิ่มรูปโปรไฟล์">
+              <span className="add-photo" style={{ width: 76, height: 76 }}><Camera size={26} /></span>
+              <small>เพิ่มรูป</small>
+            </Link>
+          )}
         </div>
         {store && (
           <div style={{ marginTop: 14, position: 'relative', zIndex: 1 }}>
@@ -114,8 +131,26 @@ export default async function ClockPage() {
         </Link>
       )}
 
+      {rest && <RestDay title={rest.title} subtitle={rest.subtitle} note={rest.note} />}
+      {!rest && exempt && (
+        <div className="card exempt-note">
+          <span className="news-icon"><Icon name="confirm" size={20} /></span>
+          <div>
+            <b>ตำแหน่งผู้บริหาร — ไม่ต้องบันทึกเวลา</b>
+            <div className="muted">วันทำงานนับให้อัตโนมัติ บันทึกเวลาได้ถ้าต้องการ</div>
+          </div>
+        </div>
+      )}
       {store ? (
-        <ClockPanel nextType={next} openSince={next === 'OUT' && last ? last.timestamp.toISOString() : null} />
+        rest || exempt ? (
+          // วันหยุด/ผู้บริหาร: ซ่อนปุ่มไว้ แต่ยังบันทึกได้ (เช่น มาช่วยงานวันหยุด) — เปิดค้างถ้ากำลังทำงานอยู่
+          <details className="optional-clock" open={next === 'OUT' || undefined}>
+            <summary>{rest ? 'มาช่วยงานวันนี้? แตะเพื่อบันทึกเวลา' : 'บันทึกเวลา (ไม่บังคับ)'}</summary>
+            <ClockPanel nextType={next} openSince={next === 'OUT' && last ? last.timestamp.toISOString() : null} />
+          </details>
+        ) : (
+          <ClockPanel nextType={next} openSince={next === 'OUT' && last ? last.timestamp.toISOString() : null} />
+        )
       ) : (
         <div className="alert alert-warn">คุณยังไม่ได้ถูกกำหนดร้าน กรุณาติดต่อผู้ดูแลระบบ</div>
       )}

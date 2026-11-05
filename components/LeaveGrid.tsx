@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { prisma } from '@/lib/db';
+import { holidaySetFor, loadHolidays, teamWhere } from '@/lib/payroll-service';
 import { toShiftDef } from '@/lib/attendance';
-import { holidaySetFor, loadHolidays } from '@/lib/payroll-service';
 import { eachDate, monthLabel, monthRange, shiftMonth, toDateStr, weekday } from '@/lib/time';
 import { Avatar } from './Avatar';
 
@@ -13,8 +13,8 @@ export async function LeaveGrid({ month, basePath }: { month: string; basePath: 
   const { start, end } = monthRange(month);
   const today = toDateStr(new Date());
   const [employees, requests, holidays, types] = await Promise.all([
-    // ไม่รวมบัญชีผู้ดูแลที่ไม่ได้เป็นพนักงานรับเงินเดือน
-    prisma.employee.findMany({ where: { active: true, OR: [{ role: 'STAFF' }, { baseSalary: { gt: 0 } }] }, include: { shift: true }, orderBy: { code: 'asc' } }),
+    // ทุกคนยกเว้นบัญชีระบบ (รวมผู้บริหาร เพื่อวางกำลังคน)
+    prisma.employee.findMany({ where: teamWhere, include: { shift: true }, orderBy: { code: 'asc' } }),
     prisma.leaveRequest.findMany({
       where: { status: { in: ['APPROVED', 'PENDING'] }, startDate: { lte: end }, endDate: { gte: start } },
       include: { leaveType: true },

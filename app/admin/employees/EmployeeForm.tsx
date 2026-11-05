@@ -31,10 +31,21 @@ export function EmployeeForm({ emp, stores, shifts }: { emp?: Employee; stores: 
             <option value="ADMIN">ผู้ดูแลระบบ</option>
           </select>
         </label>
+        <label>รูปแบบการทำงาน
+          <select name="workMode" defaultValue={emp?.workMode ?? 'CLOCK'}>
+            <option value="CLOCK">บันทึกเวลาทุกวัน (Staff)</option>
+            <option value="EXEMPT">ผู้บริหาร — ไม่ต้องบันทึกเวลา (Management)</option>
+            <option value="NONE">บัญชีระบบ — ไม่แสดงในตาราง</option>
+          </select>
+        </label>
         <label>{emp ? 'รีเซ็ตรหัสผ่าน (เว้นว่างถ้าไม่เปลี่ยน)' : 'รหัสผ่านชั่วคราว *'}
           <input name="password" type="password" autoComplete="new-password" required={!emp} minLength={4} />
         </label>
       </div>
+      <p className="muted">
+        <b>ผู้บริหาร:</b> ไม่ต้องบันทึกเวลา วันทำงานนับเต็มทุกวัน ไม่หักสาย/ขาด ไม่มี OT (หักเฉพาะลาไม่รับเงิน) ยังขอลาและขึ้นในตารางวันลาได้ ·
+        <b> บัญชีระบบ:</b> สำหรับบัญชีที่ไม่ใช่คนทำงาน เช่น admin
+      </p>
       <p className="muted">รหัสผ่านที่ผู้ดูแลตั้งให้เป็นรหัสชั่วคราว พนักงานจะต้องตั้งรหัสใหม่เองเมื่อเข้าใช้ครั้งแรก</p>
       <label className="check" style={{ marginTop: 12 }}>
         <input type="checkbox" name="active" defaultChecked={emp?.active ?? true} /> เปิดใช้งาน
