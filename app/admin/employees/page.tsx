@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { fmtBaht } from '@/lib/money';
 import { PAY_TYPE_LABEL, type PayType } from '@/lib/payroll';
-import { Avatar } from '@/components/Avatar';
+import { PhotoPreview } from '@/components/PhotoPreview';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +24,7 @@ export default async function EmployeesPage() {
             {employees.map((e) => (
               <tr key={e.id}>
                 <td><Link href={`/admin/employees/${e.id}`}>{e.code}</Link></td>
-                <td><span className="row" style={{ gap: 8, flexWrap: 'nowrap' }}><Avatar emp={e} size={32} />{e.name} {e.role === 'ADMIN' && <span className="badge">ผู้ดูแล</span>}</span></td>
+                <td><span className="row" style={{ gap: 8, flexWrap: 'nowrap' }}><PhotoPreview emp={e} size={32} caption={`${e.code}${e.position ? ` · ${e.position}` : ''}`} />{e.name} {e.role === 'ADMIN' && <span className="badge">ผู้ดูแล</span>}{e.workMode === 'EXEMPT' && <span className="badge badge-ok">ผู้บริหาร</span>}{e.workMode === 'NONE' && <span className="badge">บัญชีระบบ</span>}</span></td>
                 <td>{e.position ?? '-'}</td>
                 <td>{e.store?.name ?? '-'}</td>
                 <td>{e.shift?.name ?? '-'}</td>

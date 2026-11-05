@@ -59,11 +59,13 @@ export async function grant(employeeId: number, key: string, periodKey: string, 
  * ประเมิน achievement อัตโนมัติของเดือนที่จบแล้ว (ทำซ้ำได้ ไม่ให้ซ้ำ)
  * เรียกตอนอนุมัติงวดเงินเดือน เพราะข้อมูลผ่านการยืนยันแล้ว
  */
+const EXEMPT_BADGES = new Set(['probation', 'tenure_1', 'tenure_3', 'tenure_5', 'news_reader']);
+
 export async function evaluateMonthForAll(month: string) {
   const { start, end } = monthRange(month);
   const settings = await getSettings();
   const employees = (await prisma.employee.findMany({ where: { active: true }, include: { shift: true } })).filter(
-    (e) => employedFrom(e) <= end && (e.role === 'STAFF' || e.baseSalary > 0),
+    (e) => employedFrom(e) <= end && e.workMode !== 'NONE',
   );
   let granted = 0;
   for (const emp of employees) {
@@ -102,7 +104,9 @@ export async function evaluateMonthForAll(month: string) {
       perfectMonths: new Set(perfect.map((p) => p.periodKey)),
       announcements: anns.map((a) => ({ createdAt: a.createdAt, readAt: a.reads[0]?.readAt ?? null })),
     });
-    for (const a of awards) if (await grant(emp.id, a.key, a.periodKey)) granted++;
+    // ผู้บริหารไม่ต้องบันทึกเวลา จึงไม่ได้ badge ที่วัดจากการบันทึกเวลา
+    const allowed = emp.workMode === 'EXEMPT' ? awards.filter((a) => EXEMPT_BADGES.has(a.key)) : awards;
+    for (const a of allowed) if (await grant(emp.id, a.key, a.periodKey)) granted++;
   }
   return granted;
 }

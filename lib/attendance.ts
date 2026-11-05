@@ -25,7 +25,12 @@ export interface Session {
   out: Date | null;
 }
 
-export type DayStatus = 'PRESENT' | 'INCOMPLETE' | 'ABSENT' | 'LEAVE' | 'OFF' | 'PENDING';
+export type DayStatus = 'PRESENT' | 'INCOMPLETE' | 'ABSENT' | 'LEAVE' | 'EXEMPT' | 'OFF' | 'PENDING';
+
+/** CLOCK = บันทึกเวลาทุกวัน · EXEMPT = ผู้บริหาร ไม่ต้องบันทึกเวลา · NONE = บัญชีระบบ */
+export type WorkMode = 'CLOCK' | 'EXEMPT' | 'NONE';
+export const WORK_MODE_LABEL: Record<WorkMode, string> = { CLOCK: 'บันทึกเวลา', EXEMPT: 'ผู้บริหาร (ไม่ต้องบันทึกเวลา)', NONE: 'บัญชีระบบ (ไม่แสดงในตาราง)' };
+export const asWorkMode = (v: string | null | undefined): WorkMode => (v === 'EXEMPT' || v === 'NONE' ? v : 'CLOCK');
 
 export interface DaySummary {
   date: string;
@@ -112,6 +117,11 @@ export interface SummarizeOptions {
   employedFrom?: string | null;
   /** วันลาที่อนุมัติแล้ว (จาก classifyLeaveDays) */
   leaves?: Map<string, LeaveDay>;
+  /**
+   * ผู้บริหาร: วันทำงานที่ไม่ได้ลานับเป็นวันทำงานเต็ม (EXEMPT) แม้ไม่ได้บันทึกเวลา
+   * และไม่คิดสาย / OT / ทำงานวันหยุด
+   */
+  exempt?: boolean;
 }
 
 /** สรุปการทำงานรายวัน: ชั่วโมงทำงาน, มาสาย, OT, ขาดงาน */
@@ -138,6 +148,7 @@ export function summarizeDays(opts: SummarizeOptions): DaySummary[] {
 
     if (!employed) return { ...empty, status: 'OFF' };
     if (list.length === 0) {
+      if (opts.exempt && scheduled && !leave && date <= today) return { ...empty, regularMinutes: standard, status: 'EXEMPT' };
       const status: DayStatus = !scheduled ? 'OFF' : leave ? 'LEAVE' : date < today ? 'ABSENT' : 'PENDING';
       return { ...empty, status };
     }
@@ -163,6 +174,12 @@ export function summarizeDays(opts: SummarizeOptions): DaySummary[] {
       ot = floorBlock(Math.max(0, worked - regular), block);
     }
 
+    if (opts.exempt) {
+      // ผู้บริหารบันทึกเวลาเองได้ (ไว้ดูเป็นข้อมูล) แต่ไม่มีผลกับเงินเดือน
+      if (!scheduled) return { ...empty, firstIn, lastOut, workedMinutes: worked, status: 'OFF' };
+      if (leave) return { ...empty, firstIn, lastOut, workedMinutes: worked, status: 'LEAVE' };
+      return { ...empty, firstIn, lastOut, workedMinutes: worked, regularMinutes: standard, status: 'EXEMPT' };
+    }
     return {
       ...empty,
       firstIn,
@@ -181,6 +198,7 @@ export const STATUS_LABEL: Record<DayStatus, string> = {
   INCOMPLETE: 'ไม่ได้บันทึกออก',
   ABSENT: 'ขาดงาน',
   LEAVE: 'ลา',
+  EXEMPT: 'ไม่ต้องบันทึกเวลา',
   OFF: 'วันหยุด',
   PENDING: '-',
 };

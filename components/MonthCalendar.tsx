@@ -5,7 +5,7 @@ import { LogIn, LogOut, Timer } from 'lucide-react';
 
 export interface CalDay {
   date: string;
-  status: 'PRESENT' | 'INCOMPLETE' | 'ABSENT' | 'LEAVE' | 'OFF' | 'PENDING';
+  status: 'PRESENT' | 'INCOMPLETE' | 'ABSENT' | 'LEAVE' | 'EXEMPT' | 'OFF' | 'PENDING';
   scheduled: boolean;
   holiday: boolean;
   firstIn: string | null;
@@ -24,6 +24,7 @@ const wd = (date: string) => new Date(`${date}T00:00:00Z`).getUTCDay();
 function kind(d: CalDay, today: string) {
   if (d.status === 'LEAVE') return 'leave';
   if (d.status === 'ABSENT') return 'absent';
+  if (d.status === 'EXEMPT') return d.firstIn ? 'ok' : 'exempt';
   if (d.status === 'INCOMPLETE') return d.date === today ? 'working' : 'incomplete';
   if (d.status === 'PRESENT') return d.lateMinutes > 0 ? 'late' : 'ok';
   if (d.status === 'OFF') return d.holiday ? 'holiday' : 'off';
@@ -32,7 +33,7 @@ function kind(d: CalDay, today: string) {
 
 const LABEL: Record<string, string> = {
   ok: 'มาทำงาน', late: 'มาสาย', absent: 'ขาดงาน', incomplete: 'ไม่ได้บันทึกออก', working: 'กำลังทำงาน',
-  holiday: 'วันหยุดนักขัตฤกษ์', off: 'วันหยุด', future: 'ยังไม่ถึง', leave: 'ลา',
+  holiday: 'วันหยุดนักขัตฤกษ์', off: 'วันหยุด', future: 'ยังไม่ถึง', leave: 'ลา', exempt: 'วันทำงาน (ไม่ต้องบันทึกเวลา)',
 };
 
 export function MonthCalendar({ days, today }: { days: CalDay[]; today: string }) {

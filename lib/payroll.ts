@@ -121,7 +121,7 @@ export function calcPayslip(input: PayslipInput, s: PayrollSettings = DEFAULT_PA
   const sched = days.filter((d) => d.scheduled);
   const offWork = days.filter((d) => !d.scheduled && d.workedMinutes > 0);
 
-  const workDays = sched.filter((d) => d.status === 'PRESENT' || d.status === 'INCOMPLETE').length;
+  const workDays = sched.filter((d) => d.status === 'PRESENT' || d.status === 'INCOMPLETE' || d.status === 'EXEMPT').length;
   const absentDays = sched.filter((d) => d.status === 'ABSENT').length;
   const leaveDays = sched.filter((d) => d.status === 'LEAVE' && d.leave?.paid).length;
   const unpaidLeaveDays = sched.filter((d) => d.status === 'LEAVE' && !d.leave?.paid).length;

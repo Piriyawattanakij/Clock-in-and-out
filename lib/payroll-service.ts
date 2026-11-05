@@ -76,6 +76,7 @@ export async function employeeDays(employeeId: number, startDate: string, endDat
     today: toDateStr(new Date()),
     otBlockMinutes: settings.otBlockMinutes,
     employedFrom: employedFrom(emp),
+    exempt: emp.workMode === 'EXEMPT',
   });
 }
 
@@ -118,6 +119,7 @@ export async function computePeriod(periodId: number) {
         endDate: period.endDate,
         today,
         otBlockMinutes: settings.otBlockMinutes,
+        exempt: emp.workMode === 'EXEMPT',
       });
       const prev = existing.get(emp.id);
       const result = calcPayslip(
@@ -157,3 +159,6 @@ export async function recomputeDraftPeriods(startDate: string, endDate: string =
   });
   for (const p of periods) await computePeriod(p.id);
 }
+
+/** ใครถูกแสดงในตารางพนักงาน (ภาพรวม ตารางวันลา รางวัล ประกาศ): ทุกคนยกเว้นบัญชีระบบ */
+export const teamWhere = { active: true, workMode: { not: 'NONE' } } as const;

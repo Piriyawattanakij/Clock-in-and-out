@@ -48,6 +48,7 @@ async function productionAdmin() {
       code: 'admin',
       name: 'ผู้ดูแลระบบ',
       role: 'ADMIN',
+      workMode: 'NONE',
       passwordHash: await bcrypt.hash(password, 10),
       mustChangePassword: true,
       payType: 'MONTHLY',
@@ -73,7 +74,7 @@ async function demoData() {
     }));
   const shift = await prisma.shift.findFirst();
   const users = [
-    { code: 'admin', name: 'ผู้ดูแลระบบ', role: 'ADMIN', password: 'admin1234', payType: 'MONTHLY', baseSalary: 0, socialSecurity: false },
+    { code: 'admin', name: 'ผู้ดูแลระบบ', role: 'ADMIN', workMode: 'NONE', password: 'admin1234', payType: 'MONTHLY', baseSalary: 0, socialSecurity: false },
     { code: 'E001', name: 'สมชาย ใจดี', role: 'STAFF', password: '1234', position: 'พนักงานขาย', payType: 'MONTHLY', baseSalary: 1_500_000, socialSecurity: true },
     { code: 'E002', name: 'สมหญิง ขยันงาน', role: 'STAFF', password: '1234', position: 'พนักงานพาร์ทไทม์', payType: 'DAILY', baseSalary: 40_000, socialSecurity: false },
   ];
