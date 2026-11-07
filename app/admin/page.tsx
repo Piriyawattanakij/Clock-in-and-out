@@ -30,6 +30,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
       endDate: today,
       today,
       otBlockMinutes: settings.otBlockMinutes,
+      otGraceMinutes: settings.otGraceMinutes,
       employedFrom: employedFrom(e),
       leaves: leavesFor(leaveCtx, e),
     });

@@ -75,6 +75,7 @@ export async function employeeDays(employeeId: number, startDate: string, endDat
     endDate,
     today: toDateStr(new Date()),
     otBlockMinutes: settings.otBlockMinutes,
+      otGraceMinutes: settings.otGraceMinutes,
     employedFrom: employedFrom(emp),
     exempt: emp.workMode === 'EXEMPT',
   });
@@ -119,6 +120,7 @@ export async function computePeriod(periodId: number) {
         endDate: period.endDate,
         today,
         otBlockMinutes: settings.otBlockMinutes,
+      otGraceMinutes: settings.otGraceMinutes,
         exempt: emp.workMode === 'EXEMPT',
       });
       const prev = existing.get(emp.id);
