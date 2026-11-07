@@ -113,6 +113,8 @@ export interface SummarizeOptions {
   today: string;
   /** ปัด OT ลงเป็นช่วงละกี่นาที (เช่น 30) */
   otBlockMinutes?: number;
+  /** เลิกช้ากว่าเวลาเลิกกะไม่เกินกี่นาที ยังไม่นับเป็น OT (เกินแล้วนับตั้งแต่เวลาเลิกกะ) */
+  otGraceMinutes?: number;
   /** วันเริ่มงาน — ก่อนหน้านี้ไม่นับเป็นวันทำงาน/ขาดงาน */
   employedFrom?: string | null;
   /** วันลาที่อนุมัติแล้ว (จาก classifyLeaveDays) */
@@ -128,6 +130,7 @@ export interface SummarizeOptions {
 export function summarizeDays(opts: SummarizeOptions): DaySummary[] {
   const { shift, holidays, today } = opts;
   const block = opts.otBlockMinutes ?? 30;
+  const otGrace = opts.otGraceMinutes ?? 0;
   const byDate = new Map<string, Session[]>();
   for (const s of buildSessions(opts.punches)) {
     const d = toDateStr(s.in); // ช่วงทำงานนับเป็นของวันที่บันทึกเข้า
@@ -156,22 +159,22 @@ export function summarizeDays(opts: SummarizeOptions): DaySummary[] {
     const firstIn = list[0].in;
     const closed = list.filter((s): s is { in: Date; out: Date } => s.out !== null);
     const lastOut = closed.length ? closed[closed.length - 1].out : null;
-    let worked = closed.reduce((a, s) => a + mins(s.out.getTime() - s.in.getTime()), 0);
-    // บันทึกครั้งเดียวทั้งวัน (ไม่ได้บันทึกออกพักเที่ยง) → หักเวลาพักให้อัตโนมัติ
-    if (closed.length === 1 && worked > 300) worked = Math.max(0, worked - shift.breakMinutes);
+    const breakFor = (m: number) => (closed.length === 1 && m > 300 ? Math.max(0, m - shift.breakMinutes) : m);
+    // เวลาที่อยู่ร้านจริง (แสดงผล) — บันทึกครั้งเดียวทั้งวัน หักเวลาพักให้อัตโนมัติ
+    const worked = breakFor(closed.reduce((a, s) => a + mins(s.out.getTime() - s.in.getTime()), 0));
+    // เวลาที่นับเป็นชั่วโมงทำงาน: ตัดช่วงก่อนเวลาเริ่มกะออก (มาก่อนเวลาไม่นับ ทั้งวันทำงานและวันหยุด)
+    const counted = breakFor(
+      closed.reduce((a, s) => a + Math.max(0, mins(s.out.getTime() - Math.max(s.in.getTime(), start.getTime()))), 0),
+    );
+    // OT นับเฉพาะหลังเวลาเลิกกะ; เลิกช้าไม่เกินเวลาผ่อนผันยังไม่นับ
+    const afterEnd = lastOut ? Math.max(0, mins(lastOut.getTime() - end.getTime())) : 0;
+    const ot = afterEnd > otGrace ? floorBlock(afterEnd, block) : 0;
+    const regular = Math.max(0, Math.min(counted - afterEnd, standard));
 
     let late = 0;
-    let ot = 0;
-    let regular: number;
     if (scheduled) {
       late = Math.max(0, mins(firstIn.getTime() - start.getTime()));
       if (late <= shift.lateGraceMinutes) late = 0;
-      if (lastOut) ot = floorBlock(Math.max(0, mins(lastOut.getTime() - end.getTime())), block);
-      regular = Math.max(0, Math.min(worked - ot, standard));
-    } else {
-      // ทำงานในวันหยุด: ส่วนที่เกินชั่วโมงทำงานปกติ = OT ในวันหยุด
-      regular = Math.min(worked, standard);
-      ot = floorBlock(Math.max(0, worked - regular), block);
     }
 
     if (opts.exempt) {

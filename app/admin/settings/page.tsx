@@ -5,7 +5,7 @@ import { Flash } from '@/components/Flash';
 export const dynamic = 'force-dynamic';
 
 const FIELDS: { group: string; items: [keyof AppSettings, string][] }[] = [
-  { group: 'การบันทึกเวลา', items: [['maxAccuracyM', 'ความแม่นยำ GPS ที่ยอมรับ (เมตร)'], ['otBlockMinutes', 'ปัด OT ลงทีละ (นาที)']] },
+  { group: 'การบันทึกเวลา', items: [['maxAccuracyM', 'ความแม่นยำ GPS ที่ยอมรับ (เมตร)'], ['otBlockMinutes', 'ปัด OT ลงทีละ (นาที)'], ['otGraceMinutes', 'เลิกช้าไม่เกิน (นาที) ยังไม่นับ OT']] },
   {
     group: 'อัตราค่าจ้าง',
     items: [

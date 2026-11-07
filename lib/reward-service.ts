@@ -91,6 +91,7 @@ export async function evaluateMonthForAll(month: string) {
       endDate: end,
       today: toDateStr(new Date()),
       otBlockMinutes: settings.otBlockMinutes,
+      otGraceMinutes: settings.otGraceMinutes,
       employedFrom: from,
       leaves: leavesFor(leaveCtx, emp),
     });

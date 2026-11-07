@@ -39,7 +39,7 @@ describe('summarizeDays', () => {
     const [d] = summarizeDays({ ...base, punches: [p('IN', '2026-11-02T09:20'), p('OUT', '2026-11-02T19:45')], startDate: '2026-11-02', endDate: '2026-11-02' });
     expect(d.lateMinutes).toBe(20);
     expect(d.otMinutes).toBe(90);
-    expect(d.regularMinutes).toBe(480 - 20 + 15); // ทำงานจริงหลังหักพัก แล้วหัก OT ออก (ไม่เกิน 8 ชม.)
+    expect(d.regularMinutes).toBe(480 - 20); // 8 ชม. หักที่สาย 20 นาที — เวลาหลังเลิกกะอยู่ฝั่ง OT ทั้งหมด
   });
   it('late within grace is not counted', () => {
     const [d] = summarizeDays({ ...base, punches: [p('IN', '2026-11-02T09:05'), p('OUT', '2026-11-02T18:00')], startDate: '2026-11-02', endDate: '2026-11-02' });
